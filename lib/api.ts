@@ -45,6 +45,7 @@ export interface ChatHistoryItem {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
+const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -130,31 +131,20 @@ export async function deleteDocument(documentId: string) {
 }
 
 /**
- * Detects whether a question string is written in Roman Urdu
- */
-function isRomanUrdu(text: string): boolean {
-  const q = text.toLowerCase().trim();
-  const keywords = [
-    "kaise", "kese", "kya", "kia", "haal", "hal", "ho", "han", "hai", "hain",
-    "kyun", "kyn", "kab", "kahan", "kisi", "mujhe", "mjhe", "batao", "btao",
-    "karo", "kro", "rahe", "rahy", "ap", "aap", "kon", "kaun", "meri", "mera",
-    "ye", "yeh", "voh", "woh", "sirf", "lekin", "is", "us", "bhai", "sab", "sub",
-    "kaisa", "salam", "aoa", "hy", "hlo", "theek", "thik", "bhi", "rha", "rhi"
-  ];
-  const words = q.split(/\s+/);
-  return words.some(w => keywords.includes(w)) || /^(hy|hlo|aoa|salam)/.test(q);
-}
-
-/**
- * Direct OpenRouter API call or clean conversational fallback without meta messages
+ * Real LLM Answer Generator — connects directly to OpenRouter / Gemini API.
+ * NO static fallback strings or pre-canned replies.
  */
 async function generateDirectLLMAnswer(question: string): Promise<string> {
-  if (OPENROUTER_API_KEY) {
+  const activeOpenRouterKey =
+    OPENROUTER_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('openrouter_key') : '') || '';
+
+  // Strategy 1: OpenRouter API Direct LLM Call
+  if (activeOpenRouterKey) {
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "Authorization": `Bearer ${activeOpenRouterKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://deeprag-lab.vercel.app",
           "X-Title": "DeepRAG Lab",
@@ -165,7 +155,7 @@ async function generateDirectLLMAnswer(question: string): Promise<string> {
             {
               role: "system",
               content:
-                "You are an AI assistant. Answer the user's question directly, clearly, and concisely. Always respond in the exact language used by the user (e.g. if the user asks in Roman Urdu, respond in Roman Urdu; if English, respond in English). Never include internal system logs, processing notes, or status disclaimers.",
+                "You are a helpful, expert AI assistant. Answer any user question directly, comprehensively, and accurately. Always respond in the exact language used by the user (e.g. if Roman Urdu, answer in Roman Urdu; if English, answer in English). Never return placeholder status strings or system disclaimers.",
             },
             {
               role: "user",
@@ -178,44 +168,46 @@ async function generateDirectLLMAnswer(question: string): Promise<string> {
       if (res.ok) {
         const data = await res.json();
         const content = data.choices?.[0]?.message?.content;
-        if (content) return content.trim();
+        if (content && content.trim()) {
+          return content.trim();
+        }
       }
     } catch (err) {
-      // ignore network fail and fallback to structured rule matching
+      // Fall through to Strategy 2
     }
   }
 
-  // Structured Conversational Answer Matching (No processing/meta messages)
-  const q = question.toLowerCase().trim();
-  const inRomanUrdu = isRomanUrdu(question);
+  // Strategy 2: Google Gemini REST API Direct LLM Call
+  if (GEMINI_API_KEY) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: question }],
+              },
+            ],
+          }),
+        }
+      );
 
-  if (inRomanUrdu) {
-    if (/^(hy|hlo|hi|hello|hey|salam|aoa)/.test(q) || q.includes("kaise") || q.includes("kese") || q.includes("haal")) {
-      return "Aoa! Main bilkul theek hun. Aap sunain, main aap ki kya madad kar sakta hun?";
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (content && content.trim()) {
+          return content.trim();
+        }
+      }
+    } catch (err) {
+      // Fall through
     }
-    if (q.includes("kia ho rha") || q.includes("kya ho raha") || q.includes("kya chal rha")) {
-      return "Sub theek thak chal raha hai! Aap sunain, aaj kya discuss karna chahte hain?";
-    }
-    if (q.includes("kon ho") || q.includes("kaun ho") || q.includes("naam kya")) {
-      return "Main aik AI assistant hun, aap ki research aur documents ke sawalat mein madad karne ke liye hazir hun.";
-    }
-    if (q.includes("madad") || q.includes("kya kaam")) {
-      return "Main aap ke sawalat ke jawabat de sakta hun, documents analyze kar sakta hun, aur coding ya general topics par madad kar sakta hun.";
-    }
-    return "Main aap ke sawal ka jawab dene ke liye tayyar hun. Aap mazeed tafseelat bhi pooch sakte hain.";
   }
 
-  if (/^(hi|hello|hey|greetings|hola)/.test(q)) {
-    return "Hello! How can I help you today?";
-  }
-  if (q.includes("how are you") || q.includes("how r u")) {
-    return "I'm doing well, thank you for asking! How can I assist you today?";
-  }
-  if (q.includes("who are you") || q.includes("what is your name")) {
-    return "I am an AI assistant designed to help answer questions, analyze documents, and assist with your research.";
-  }
-
-  return `Artificial Intelligence and Retrieval-Augmented Generation enable instant document analysis and structured reasoning. Let me know if you need specific details or document search!`;
+  throw new Error("Unable to connect to AI LLM services. Please check network connection.");
 }
 
 export async function sendChatMessage(
@@ -237,7 +229,8 @@ export async function sendChatMessage(
 
     return await res.json();
   } catch (err: any) {
-    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+    // If backend is offline or network fails, run direct client LLM API generation
+    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('Chat request failed'))) {
       const resolvedMode: 'document_qa' | 'general_ai' = mode === 'document_qa' ? 'document_qa' : 'general_ai';
       const cleanAnswer = await generateDirectLLMAnswer(question);
       return {
