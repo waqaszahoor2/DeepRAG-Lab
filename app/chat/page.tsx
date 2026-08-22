@@ -26,7 +26,6 @@ import {
   Code,
   Lightbulb,
 } from "lucide-react";
-import ConfidenceScore from "@/components/ConfidenceScore";
 import SourceCitation from "@/components/SourceCitation";
 import { sendChatMessage, SourceCitation as SourceCitationType } from "@/lib/api";
 
@@ -512,24 +511,20 @@ export default function ChatPage() {
                       : "glass-panel border border-slate-800/80 text-slate-200"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <span className="text-[11px] font-semibold opacity-75">
-                      {msg.sender === "user" ? "You" : "DeepRAG AI"}
-                    </span>
+                  <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
 
-                    {msg.sender === "ai" && (
-                      <div className="flex items-center gap-2">
-                        {msg.mode && (
-                          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-400 text-[9px] font-mono uppercase border border-slate-700">
-                            {msg.mode}
-                          </span>
-                        )}
-                        <ConfidenceScore score={msg.confidence} />
+                  {msg.sources && msg.sources.length > 0 && (
+                    <SourceCitation sources={msg.sources} />
+                  )}
 
+                  {/* Clean Footer Actions & Timestamp */}
+                  <div className="flex items-center justify-between gap-3 mt-3 pt-2 border-t border-slate-800/40">
+                    {msg.sender === "ai" ? (
+                      <div className="flex items-center gap-1.5">
                         {/* Text to Speech Voice Output */}
                         <button
                           onClick={() => toggleSpeakText(msg.id, msg.text)}
-                          className={`transition-colors p-1 ${
+                          className={`transition-colors p-1 rounded-md hover:bg-slate-800 ${
                             speakingMsgId === msg.id ? "text-indigo-400" : "text-slate-400 hover:text-white"
                           }`}
                           title={speakingMsgId === msg.id ? "Stop voice reading" : "Listen to response"}
@@ -544,7 +539,7 @@ export default function ChatPage() {
                         {/* Copy Message Button */}
                         <button
                           onClick={() => handleCopyMessage(msg.id, msg.text)}
-                          className="text-slate-400 hover:text-white transition-colors p-1"
+                          className="text-slate-400 hover:text-white transition-colors p-1 rounded-md hover:bg-slate-800"
                           title="Copy message"
                         >
                           {copiedMessageId === msg.id ? (
@@ -554,18 +549,14 @@ export default function ChatPage() {
                           )}
                         </button>
                       </div>
+                    ) : (
+                      <div />
                     )}
+
+                    <span className="text-[10px] text-slate-400/70">
+                      {msg.timestamp}
+                    </span>
                   </div>
-
-                  <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-
-                  {msg.sources && msg.sources.length > 0 && (
-                    <SourceCitation sources={msg.sources} />
-                  )}
-
-                  <span className="block text-[9px] opacity-40 mt-2 text-right">
-                    {msg.timestamp}
-                  </span>
                 </div>
 
                 {msg.sender === "user" && (
