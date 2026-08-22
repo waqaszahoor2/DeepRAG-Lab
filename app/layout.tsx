@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "DeepRAG Lab — Production AI RAG Platform",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
-        <Navbar />
-        <main className="flex-1">{children}</main>
+        <AuthProvider>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );

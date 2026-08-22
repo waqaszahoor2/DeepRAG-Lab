@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Cpu,
   LogOut,
@@ -15,58 +15,30 @@ import {
   Menu,
   X,
   User,
+  ShieldCheck,
 } from "lucide-react";
-import { signOut, getAuthToken } from "@/lib/authService";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, isAuthenticated, logout, requireAuth } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const token = getAuthToken();
-    setIsLoggedIn(!!token);
-
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabase();
-      if (supabase) {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-            if (session) {
-              localStorage.setItem("access_token", session.access_token);
-              localStorage.setItem("refresh_token", session.refresh_token);
-              setIsLoggedIn(true);
-            } else if (event === "SIGNED_OUT") {
-              localStorage.removeItem("access_token");
-              localStorage.removeItem("refresh_token");
-              setIsLoggedIn(false);
-            }
-          }
-        );
-
-        return () => {
-          authListener.subscription.unsubscribe();
-        };
-      }
-    }
-  }, [pathname]);
-
-  const handleLogout = async () => {
-    await signOut();
-    setIsLoggedIn(false);
-    setMobileMenuOpen(false);
-    router.push("/login");
-  };
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Upload Doc", href: "/upload", icon: FileText },
-    { name: "AI Chat", href: "/chat", icon: MessageSquare },
-    { name: "History", href: "/history", icon: History },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Upload Doc", href: "/upload", icon: FileText, protected: true },
+    { name: "AI Chat", href: "/chat", icon: MessageSquare, protected: true },
+    { name: "History", href: "/history", icon: History, protected: true },
+    { name: "Settings", href: "/settings", icon: Settings, protected: true },
   ];
+
+  const handleNavClick = (e: React.MouseEvent, href: string, isProtected?: boolean) => {
+    if (isProtected && !isAuthenticated) {
+      e.preventDefault();
+      requireAuth();
+    }
+  };
 
   return (
     <nav className="border-b border-slate-800 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
@@ -82,7 +54,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Navigation Feature Links — Always Visible for instant feature access */}
+          {/* Desktop Navigation Feature Links */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs font-medium">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -91,6 +63,7 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={(e) => handleNavClick(e, item.href, item.protected)}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all ${
                     isActive
                       ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
@@ -104,16 +77,27 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Auth Actions (Compact Buttons) */}
-          <div className="hidden sm:flex items-center gap-2">
-            {isLoggedIn ? (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Logout</span>
-              </button>
+          {/* Auth Actions & User Profile */}
+          <div className="hidden sm:flex items-center gap-3">
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-2.5">
+                {/* User Profile Badge */}
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs">
+                  <div className="w-5 h-5 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center text-[10px] font-bold">
+                    {user.username ? user.username.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <span className="text-slate-200 font-medium max-w-[120px] truncate">{user.email}</span>
+                </div>
+
+                {/* Logout Button */}
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
+                </button>
+              </div>
             ) : (
               <>
                 <Link
@@ -149,6 +133,18 @@ export default function Navbar() {
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-b border-slate-800 bg-slate-950/95 px-4 pt-2 pb-4 space-y-2">
+          {isAuthenticated && user && (
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 mb-2">
+              <div className="w-7 h-7 rounded-full bg-indigo-600/30 text-indigo-300 flex items-center justify-center font-bold text-xs">
+                {user.username ? user.username.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div className="truncate text-xs">
+                <p className="font-semibold text-white truncate">{user.username}</p>
+                <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 pt-1 pb-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -157,7 +153,10 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => {
+                    setMobileMenuOpen(false);
+                    handleNavClick(e, item.href, item.protected);
+                  }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
                     isActive
                       ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
@@ -172,9 +171,9 @@ export default function Navbar() {
           </div>
 
           <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <button
-                onClick={handleLogout}
+                onClick={logout}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-400 bg-rose-500/10 border border-rose-500/20"
               >
                 <LogOut className="w-4 h-4" />
