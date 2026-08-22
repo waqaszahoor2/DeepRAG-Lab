@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cpu, ArrowRight, AlertCircle, Loader2, ShieldCheck, Database, Eye, EyeOff } from "lucide-react";
-import { signIn, signInWithGoogle } from "@/lib/authService";
+import { Cpu, ArrowRight, AlertCircle, Loader2, ShieldCheck, Database, Eye, EyeOff, Mail, RefreshCw } from "lucide-react";
+import { signIn, signInWithGoogle, resendVerificationEmail } from "@/lib/authService";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -14,8 +14,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [hasSupabase, setHasSupabase] = useState(false);
+  const [showResendBtn, setShowResendBtn] = useState(false);
 
   useEffect(() => {
     setHasSupabase(isSupabaseConfigured());
@@ -38,15 +41,35 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfoMsg(null);
+    setShowResendBtn(false);
     setLoading(true);
 
     try {
       await signIn(email, password);
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Sign in failed. Please check your credentials.");
+      const msg = err.message || "Sign in failed. Please check your credentials.";
+      setError(msg);
+      if (msg.toLowerCase().includes("email not confirmed")) {
+        setShowResendBtn(true);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) return;
+    setResendLoading(true);
+    setInfoMsg(null);
+    try {
+      await resendVerificationEmail(email);
+      setInfoMsg("Verification link resent! Please check your Gmail inbox.");
+    } catch (err: any) {
+      setError(err.message || "Failed to resend confirmation email.");
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -92,7 +115,36 @@ export default function LoginPage() {
             <div className="flex-1">
               <p className="font-semibold text-rose-200">Authentication Error</p>
               <p className="text-xs text-rose-300/90 mt-0.5 leading-relaxed">{error}</p>
+              {showResendBtn && (
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendLoading}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    {resendLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    <span>Resend Gmail Link</span>
+                  </button>
+                  <a
+                    href="https://mail.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Open Gmail</span>
+                  </a>
+                </div>
+              )}
             </div>
+          </div>
+        )}
+
+        {infoMsg && (
+          <div className="mb-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm flex items-start gap-3">
+            <Mail className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-indigo-200 leading-relaxed">{infoMsg}</p>
           </div>
         )}
 

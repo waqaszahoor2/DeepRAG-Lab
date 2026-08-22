@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cpu, ArrowRight, AlertCircle, Loader2, CheckCircle2, ShieldCheck, Database, Check, X, Eye, EyeOff } from "lucide-react";
+import { Cpu, ArrowRight, AlertCircle, Loader2, CheckCircle2, ShieldCheck, Database, Check, X, Eye, EyeOff, Mail } from "lucide-react";
 import { signUp, signInWithGoogle, validateStrongPassword } from "@/lib/authService";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
   const [hasSupabase, setHasSupabase] = useState(false);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+    setEmailVerificationPending(false);
 
     if (!passwordStatus.isValid) {
       setError("Please fulfill all strong password requirements before submitting.");
@@ -54,8 +56,9 @@ export default function RegisterPage() {
     try {
       const res = await signUp(email, username, password);
       if (res.emailConfirmationRequired) {
+        setEmailVerificationPending(true);
         setSuccessMsg(
-          "Account created successfully! Please check your email inbox to confirm your registration before signing in."
+          `Account created successfully for ${email}! A confirmation link has been sent to your Gmail inbox. Please open your email and verify your address before signing in.`
         );
       } else {
         router.push("/dashboard");
@@ -117,8 +120,28 @@ export default function RegisterPage() {
           <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-semibold text-emerald-200">Confirmation Sent</p>
+              <p className="font-semibold text-emerald-200">Verify Your Email</p>
               <p className="text-xs text-emerald-300/90 mt-0.5 leading-relaxed">{successMsg}</p>
+              {emailVerificationPending && (
+                <div className="mt-3 flex items-center gap-2">
+                  <a
+                    href="https://mail.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Open Gmail Inbox</span>
+                  </a>
+                  <Link
+                    href="/login"
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium inline-flex items-center gap-1 transition-colors"
+                  >
+                    <span>Proceed to Sign In</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}

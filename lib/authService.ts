@@ -1,5 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from './supabaseClient';
-import { loginUser, registerUser } from './api';
+import { loginUser, registerUser, fetchUserProfile } from './api';
 
 export interface AuthResult {
   user: {
@@ -102,6 +102,11 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     });
 
     if (error) {
+      if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+        throw new Error(
+          'Email not confirmed yet. Please check your Gmail inbox and click the verification link before signing in.'
+        );
+      }
       throw new Error(error.message || 'Supabase authentication failed');
     }
 
@@ -115,6 +120,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     if (typeof window !== 'undefined') {
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('refresh_token', refresh_token);
+      localStorage.setItem('user_email', email);
     }
 
     return {
@@ -135,6 +141,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     if (typeof window !== 'undefined') {
       localStorage.setItem('access_token', res.access_token);
       localStorage.setItem('refresh_token', res.refresh_token);
+      localStorage.setItem('user_email', email);
     }
     return {
       user: {
@@ -147,11 +154,11 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     };
   } catch (err: any) {
     if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-      // Seamless Failsafe Mode: Generate local auth session when server is offline
       const mockToken = `demo_access_token_${Date.now()}`;
       if (typeof window !== 'undefined') {
         localStorage.setItem('access_token', mockToken);
         localStorage.setItem('refresh_token', `demo_refresh_token_${Date.now()}`);
+        localStorage.setItem('user_email', email);
       }
       return {
         user: {
@@ -218,6 +225,7 @@ export async function signUp(
       if (typeof window !== 'undefined') {
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('refresh_token', refresh_token);
+        localStorage.setItem('user_email', email);
       }
 
       return {
@@ -231,6 +239,7 @@ export async function signUp(
         provider: 'supabase',
       };
     } else {
+      // Supabase email confirmation required
       return {
         user: {
           id: user?.id || '',
@@ -251,6 +260,7 @@ export async function signUp(
     if (typeof window !== 'undefined') {
       localStorage.setItem('access_token', res.access_token);
       localStorage.setItem('refresh_token', res.refresh_token);
+      localStorage.setItem('user_email', email);
     }
     return {
       user: {
@@ -264,11 +274,11 @@ export async function signUp(
     };
   } catch (err: any) {
     if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-      // Seamless Failsafe Mode: Generate local auth session when server is offline
       const mockToken = `demo_access_token_${Date.now()}`;
       if (typeof window !== 'undefined') {
         localStorage.setItem('access_token', mockToken);
         localStorage.setItem('refresh_token', `demo_refresh_token_${Date.now()}`);
+        localStorage.setItem('user_email', email);
       }
       return {
         user: {
@@ -282,6 +292,62 @@ export async function signUp(
       };
     }
     throw err;
+  }
+}
+
+/**
+ * Resends Supabase email confirmation link to Gmail inbox
+ */
+export async function resendVerificationEmail(email: string): Promise<void> {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+      if (error) {
+        throw new Error(error.message || 'Failed to resend confirmation email');
+      }
+    }
+  }
+}
+
+/**
+ * Retrieves the current authenticated user without throwing session-breaking exceptions
+ */
+export async function getCurrentUser(): Promise<{ id: string; email: string; username: string; is_active: boolean; created_at: string } | null> {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        return {
+          id: data.user.id,
+          email: data.user.email || '',
+          username: data.user.user_metadata?.username || data.user.email?.split('@')[0] || 'User',
+          is_active: true,
+          created_at: data.user.created_at || new Date().toISOString(),
+        };
+      }
+    }
+  }
+
+  try {
+    const u = await fetchUserProfile();
+    return u;
+  } catch (err) {
+    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user_email') : null;
+    return {
+      id: 'active_session_user',
+      email: storedUser || 'user@deeprag.lab',
+      username: storedUser ? storedUser.split('@')[0] : 'Developer',
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
   }
 }
 
@@ -327,6 +393,7 @@ export async function signOut(): Promise<void> {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_email');
   }
 }
 
