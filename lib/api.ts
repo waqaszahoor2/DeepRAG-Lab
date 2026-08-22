@@ -45,8 +45,8 @@ export interface ChatHistoryItem {
 
 // ─── Configuration ───────────────────────────────────────────
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -137,14 +137,38 @@ export async function deleteDocument(documentId: string) {
 
 // ─── LLM Direct Call (Real AI Answers) ──────────────────────
 //
-// This function calls a real LLM (OpenRouter → Gemini REST API)
-// and returns the generated answer. There are ZERO hardcoded or
-// static fallback strings anywhere in this function.
-//
-// The flow:
-//   User question → OpenRouter API (Gemini model) → Real answer
-//   If OpenRouter fails → Google Gemini REST API → Real answer
-//   If both fail → throw error (shown as "Unable to generate response")
+// Default primary LLM Provider: Google Gemini API
+// Fallback LLM Provider: OpenRouter API
+
+async function callGeminiDirectLLM(question: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: question }],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (content && content.trim().length > 0) {
+        return content.trim();
+      }
+    }
+  } catch {
+    // Network or parsing error — return null to try fallback
+  }
+  return null;
+}
 
 async function callOpenRouterLLM(question: string, apiKey: string): Promise<string | null> {
   try {
@@ -180,57 +204,32 @@ async function callOpenRouterLLM(question: string, apiKey: string): Promise<stri
       }
     }
   } catch {
-    // Network or parsing error — return null to try next provider
-  }
-  return null;
-}
-
-async function callGeminiDirectLLM(question: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: question }],
-            },
-          ],
-        }),
-      }
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (content && content.trim().length > 0) {
-        return content.trim();
-      }
-    }
-  } catch {
     // Network or parsing error — return null
   }
   return null;
 }
 
 async function generateDirectLLMAnswer(question: string): Promise<string> {
-  // Resolve the active OpenRouter key: env var > localStorage
+  // Resolve keys: env var > localStorage
+  const activeGeminiKey =
+    GEMINI_API_KEY ||
+    (typeof window !== 'undefined' ? localStorage.getItem('gemini_key') : null) ||
+    '';
+
   const activeOpenRouterKey =
     OPENROUTER_API_KEY ||
     (typeof window !== 'undefined' ? localStorage.getItem('openrouter_key') : null) ||
     '';
 
-  // Strategy 1: OpenRouter (wraps Gemini, Claude, etc.)
-  if (activeOpenRouterKey) {
-    const answer = await callOpenRouterLLM(question, activeOpenRouterKey);
+  // Strategy 1 (DEFAULT PRIMARY): Google Gemini REST API Direct LLM Call
+  if (activeGeminiKey) {
+    const answer = await callGeminiDirectLLM(question, activeGeminiKey);
     if (answer) return answer;
   }
 
-  // Strategy 2: Google Gemini REST API directly
-  if (GEMINI_API_KEY) {
-    const answer = await callGeminiDirectLLM(question, GEMINI_API_KEY);
+  // Strategy 2 (SECONDARY FALLBACK): OpenRouter API Call
+  if (activeOpenRouterKey) {
+    const answer = await callOpenRouterLLM(question, activeOpenRouterKey);
     if (answer) return answer;
   }
 
@@ -239,11 +238,6 @@ async function generateDirectLLMAnswer(question: string): Promise<string> {
 }
 
 // ─── Chat API (Primary flow) ────────────────────────────────
-//
-// Priority order:
-//   1. Try FastAPI backend (localhost:8000) — full RAG pipeline
-//   2. If backend is unreachable → call LLM directly from frontend
-//   3. If LLM also fails → show clean error message to user
 
 export async function sendChatMessage(
   question: string,
@@ -267,17 +261,15 @@ export async function sendChatMessage(
 
     if (res.ok) {
       const data = await res.json();
-      // Validate that the backend returned a real answer, not an empty or error response
       if (data.answer && data.answer.trim().length > 0) {
         return data as ChatResponse;
       }
     }
-    // If response is not OK or answer is empty, fall through to direct LLM
   } catch {
-    // Backend unreachable (network error, timeout, CORS) — fall through
+    // Backend unreachable — fall through to direct Gemini/LLM
   }
 
-  // ── Step 2: Direct LLM call (OpenRouter / Gemini) ──
+  // ── Step 2: Direct Google Gemini / LLM call ──
   try {
     const resolvedMode: 'document_qa' | 'general_ai' =
       mode === 'document_qa' ? 'document_qa' : 'general_ai';
@@ -292,9 +284,9 @@ export async function sendChatMessage(
       query_id: `query_${Date.now()}`,
     };
   } catch {
-    // ── Step 3: Both backend AND LLM failed — return clean error ──
+    // ── Step 3: Failure notification ──
     return {
-      answer: "I'm unable to generate a response right now. Please check that the NEXT_PUBLIC_OPENROUTER_API_KEY environment variable is configured in your Vercel project settings, then redeploy.",
+      answer: "I'm unable to generate a response right now. Please check that the NEXT_PUBLIC_GEMINI_API_KEY environment variable is configured in your Vercel project settings, then redeploy.",
       mode: 'general_ai',
       confidence_score: undefined,
       sources: [],
