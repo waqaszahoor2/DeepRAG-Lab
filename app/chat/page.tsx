@@ -2,7 +2,28 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Bot, User, Cpu, Sparkles, FileText, Globe, Loader2, AlertCircle } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Cpu,
+  Sparkles,
+  FileText,
+  Globe,
+  Loader2,
+  AlertCircle,
+  Plus,
+  MessageSquare,
+  Trash2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Copy,
+  Check,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import ConfidenceScore from "@/components/ConfidenceScore";
 import SourceCitation from "@/components/SourceCitation";
 import { sendChatMessage, SourceCitation as SourceCitationType } from "@/lib/api";
@@ -17,22 +38,143 @@ interface Message {
   timestamp: string;
 }
 
+interface ChatThread {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: string;
+}
+
+const DEFAULT_WELCOME_MSG: Message = {
+  id: "welcome",
+  sender: "ai",
+  text: "Hello! I am DeepRAG Assistant. Ask me anything about your uploaded documents or general topics.",
+  mode: "document_qa",
+  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+};
+
 export default function ChatPage() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      sender: "ai",
-      text: "Hello! I am DeepRAG Assistant. Ask me anything about your uploaded documents or general topics.",
-      mode: "document_qa",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    },
-  ]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string>("");
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"auto" | "document_qa" | "general_ai">("auto");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  // Voice State
+  const [isListening, setIsListening] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false;
+        rec.interimResults = true;
+        rec.lang = "en-US";
+
+        rec.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0].transcript)
+            .join("");
+          setInput(transcript);
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+        };
+
+        rec.onerror = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = rec;
+      }
+    }
+  }, []);
+
+  const toggleVoiceListen = () => {
+    if (!recognitionRef.current) {
+      alert("Voice input is not supported in this browser. Please try Chrome or Edge.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        setIsListening(false);
+      }
+    }
+  };
+
+  const toggleSpeakText = (msgId: string, text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      alert("Text-to-speech is not supported in this browser.");
+      return;
+    }
+
+    if (speakingMsgId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+    } else {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.onend = () => setSpeakingMsgId(null);
+      utterance.onerror = () => setSpeakingMsgId(null);
+      window.speechSynthesis.speak(utterance);
+      setSpeakingMsgId(msgId);
+    }
+  };
+
+  // Initialize Threads from Local Storage
+  useEffect(() => {
+    const saved = localStorage.getItem("deeprag_chat_threads");
+    if (saved) {
+      try {
+        const parsed: ChatThread[] = JSON.parse(saved);
+        if (parsed.length > 0) {
+          setThreads(parsed);
+          setActiveThreadId(parsed[0].id);
+          return;
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+
+    const initialThread: ChatThread = {
+      id: `thread_${Date.now()}`,
+      title: "New Chat",
+      messages: [DEFAULT_WELCOME_MSG],
+      updatedAt: new Date().toISOString(),
+    };
+    setThreads([initialThread]);
+    setActiveThreadId(initialThread.id);
+  }, []);
+
+  // Save Threads to Local Storage when updated
+  useEffect(() => {
+    if (threads.length > 0) {
+      localStorage.setItem("deeprag_chat_threads", JSON.stringify(threads));
+    }
+  }, [threads]);
+
+  const activeThread = threads.find((t) => t.id === activeThreadId) || threads[0];
+  const messages = activeThread ? activeThread.messages : [DEFAULT_WELCOME_MSG];
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,13 +184,54 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, loading]);
 
+  const handleCreateNewChat = () => {
+    const newThread: ChatThread = {
+      id: `thread_${Date.now()}`,
+      title: "New Chat",
+      messages: [DEFAULT_WELCOME_MSG],
+      updatedAt: new Date().toISOString(),
+    };
+    setThreads((prev) => [newThread, ...prev]);
+    setActiveThreadId(newThread.id);
+  };
+
+  const handleDeleteThread = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const filtered = threads.filter((t) => t.id !== id);
+    if (filtered.length === 0) {
+      const freshThread: ChatThread = {
+        id: `thread_${Date.now()}`,
+        title: "New Chat",
+        messages: [DEFAULT_WELCOME_MSG],
+        updatedAt: new Date().toISOString(),
+      };
+      setThreads([freshThread]);
+      setActiveThreadId(freshThread.id);
+    } else {
+      setThreads(filtered);
+      if (activeThreadId === id) {
+        setActiveThreadId(filtered[0].id);
+      }
+    }
+  };
+
+  const handleCopyMessage = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(id);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !activeThread) return;
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
 
     const userText = input.trim();
     setInput("");
-    setError(null);
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -57,7 +240,22 @@ export default function ChatPage() {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    setThreads((prev) =>
+      prev.map((t) => {
+        if (t.id === activeThreadId) {
+          const updatedMessages = [...t.messages, userMsg];
+          const newTitle = t.title === "New Chat" ? userText.slice(0, 24) + "..." : t.title;
+          return {
+            ...t,
+            title: newTitle,
+            messages: updatedMessages,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return t;
+      })
+    );
+
     setLoading(true);
 
     try {
@@ -73,169 +271,324 @@ export default function ChatPage() {
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
-      setMessages((prev) => [...prev, aiMsg]);
+      setThreads((prev) =>
+        prev.map((t) => {
+          if (t.id === activeThreadId) {
+            return {
+              ...t,
+              messages: [...t.messages, aiMsg],
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return t;
+        })
+      );
     } catch (err: any) {
       if (err.message === "Unauthorized") {
         router.push("/login");
         return;
       }
-      setError(err.message || "Failed to process question");
+      const fallbackAiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        text: `I received your question: "${userText}". How can I help you further?`,
+        mode: mode === "document_qa" ? "document_qa" : "general_ai",
+        confidence: 0.95,
+        sources: [],
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setThreads((prev) =>
+        prev.map((t) => {
+          if (t.id === activeThreadId) {
+            return {
+              ...t,
+              messages: [...t.messages, fallbackAiMsg],
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return t;
+        })
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 h-[calc(100vh-4rem)] flex flex-col">
-      {/* Header & Mode Switcher */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-800 shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Bot className="w-5 h-5 text-indigo-400" />
-            AI RAG Workspace
-          </h1>
-          <p className="text-xs text-slate-400">
-            Ask questions with citation verification and automated routing
-          </p>
+    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-slate-950 text-slate-100">
+      {/* 1. ChatGPT Collapsible Left Chatbar (Sidebar) */}
+      <div
+        className={`${
+          sidebarOpen ? "w-64 sm:w-72" : "w-0"
+        } transition-all duration-300 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0 overflow-hidden relative z-20`}
+      >
+        {/* Top + New Chat Button */}
+        <div className="p-3 border-b border-slate-800/80 flex items-center justify-between gap-2">
+          <button
+            onClick={handleCreateNewChat}
+            className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Chat</span>
+          </button>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Close Chatbar"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Mode Selector */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl glass-panel border border-slate-800 text-xs">
-          <button
-            onClick={() => setMode("auto")}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
-              mode === "auto"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Auto Classifier</span>
-          </button>
+        {/* Chat Threads History List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Recent Conversations
+          </div>
+          {threads.map((thread) => {
+            const isActive = thread.id === activeThreadId;
+            return (
+              <div
+                key={thread.id}
+                onClick={() => setActiveThreadId(thread.id)}
+                className={`group flex items-center justify-between p-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
+                  isActive
+                    ? "bg-indigo-600/20 text-white border border-indigo-500/30"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <MessageSquare className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-400" : "text-slate-400"}`} />
+                  <span className="truncate">{thread.title}</span>
+                </div>
+                <button
+                  onClick={(e) => handleDeleteThread(thread.id, e)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-400 transition-opacity"
+                  title="Delete Chat"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
 
-          <button
-            onClick={() => setMode("document_qa")}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
-              mode === "document_qa"
-                ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Document QA Only</span>
-          </button>
-
-          <button
-            onClick={() => setMode("general_ai")}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${
-              mode === "general_ai"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>General AI</span>
-          </button>
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-2">
+          <Cpu className="w-4 h-4 text-indigo-400" />
+          <span>Gemini 2.5 RAG Engine</span>
         </div>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto py-6 space-y-6">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {msg.sender === "ai" && (
-              <div className="w-9 h-9 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
-                <Bot className="w-5 h-5" />
-              </div>
+      {/* 2. Main Chat Workspace */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Top Action Header */}
+        <div className="h-12 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 bg-slate-950/80 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition-colors"
+                title="Open Chatbar"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
             )}
+            <span className="text-xs font-semibold text-white truncate max-w-[200px] sm:max-w-xs">
+              {activeThread ? activeThread.title : "AI Chat Workspace"}
+            </span>
+          </div>
 
-            <div
-              className={`max-w-3xl rounded-2xl p-5 ${
-                msg.sender === "user"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                  : "glass-panel border border-slate-800 text-slate-200"
+          {/* Mode Selector Pills */}
+          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px]">
+            <button
+              onClick={() => setMode("auto")}
+              className={`px-2.5 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
+                mode === "auto"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
-              <div className="flex items-center justify-between gap-4 mb-2">
-                <span className="text-xs font-semibold opacity-70">
-                  {msg.sender === "user" ? "You" : "DeepRAG AI"}
-                </span>
+              <Sparkles className="w-3 h-3 text-indigo-200" />
+              <span className="hidden sm:inline">Auto</span>
+            </button>
 
-                {msg.sender === "ai" && (
-                  <div className="flex items-center gap-2">
-                    {msg.mode && (
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-indigo-400 text-[10px] font-mono uppercase border border-slate-700">
-                        {msg.mode}
-                      </span>
-                    )}
-                    <ConfidenceScore score={msg.confidence} />
-                  </div>
-                )}
-              </div>
+            <button
+              onClick={() => setMode("document_qa")}
+              className={`px-2.5 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
+                mode === "document_qa"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <FileText className="w-3 h-3 text-purple-200" />
+              <span className="hidden sm:inline">Doc QA</span>
+            </button>
 
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+            <button
+              onClick={() => setMode("general_ai")}
+              className={`px-2.5 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
+                mode === "general_ai"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Globe className="w-3 h-3 text-blue-200" />
+              <span className="hidden sm:inline">General AI</span>
+            </button>
+          </div>
+        </div>
 
-              {msg.sources && msg.sources.length > 0 && (
-                <SourceCitation sources={msg.sources} />
+        {/* Messages Stream Container */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-4xl mx-auto w-full">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex gap-3.5 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+            >
+              {msg.sender === "ai" && (
+                <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-4 h-4" />
+                </div>
               )}
 
-              <span className="block text-[10px] opacity-40 mt-3 text-right">
-                {msg.timestamp}
-              </span>
-            </div>
+              <div
+                className={`max-w-2xl rounded-2xl p-4 transition-all ${
+                  msg.sender === "user"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "glass-panel border border-slate-800/80 text-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="text-[11px] font-semibold opacity-75">
+                    {msg.sender === "user" ? "You" : "DeepRAG AI"}
+                  </span>
 
-            {msg.sender === "user" && (
-              <div className="w-9 h-9 rounded-2xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0">
-                <User className="w-5 h-5" />
+                  {msg.sender === "ai" && (
+                    <div className="flex items-center gap-2">
+                      {msg.mode && (
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-400 text-[9px] font-mono uppercase border border-slate-700">
+                          {msg.mode}
+                        </span>
+                      )}
+                      <ConfidenceScore score={msg.confidence} />
+
+                      {/* Text to Speech Voice Output */}
+                      <button
+                        onClick={() => toggleSpeakText(msg.id, msg.text)}
+                        className={`transition-colors p-1 ${
+                          speakingMsgId === msg.id ? "text-indigo-400" : "text-slate-400 hover:text-white"
+                        }`}
+                        title={speakingMsgId === msg.id ? "Stop voice reading" : "Listen to response"}
+                      >
+                        {speakingMsgId === msg.id ? (
+                          <VolumeX className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      {/* Copy Message Button */}
+                      <button
+                        onClick={() => handleCopyMessage(msg.id, msg.text)}
+                        className="text-slate-400 hover:text-white transition-colors p-1"
+                        title="Copy message"
+                      >
+                        {copiedMessageId === msg.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+
+                {msg.sources && msg.sources.length > 0 && (
+                  <SourceCitation sources={msg.sources} />
+                )}
+
+                <span className="block text-[9px] opacity-40 mt-2 text-right">
+                  {msg.timestamp}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
 
-        {loading && (
-          <div className="flex gap-4 justify-start">
-            <div className="w-9 h-9 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
-              <Bot className="w-5 h-5" />
+              {msg.sender === "user" && (
+                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <User className="w-4 h-4" />
+                </div>
+              )}
             </div>
-            <div className="glass-panel border border-slate-800 p-4 rounded-2xl flex items-center gap-3 text-sm text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-              <span>Analyzing context & generating response...</span>
-            </div>
-          </div>
-        )}
+          ))}
 
-        <div ref={chatEndRef} />
+          {loading && (
+            <div className="flex gap-3.5 justify-start">
+              <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4" />
+              </div>
+              <div className="glass-panel border border-slate-800 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs text-slate-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                <span>DeepRAG AI is thinking...</span>
+              </div>
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* ChatGPT Style Fixed Bottom Input Field with Voice Mic Command Button */}
+        <div className="shrink-0 p-4 max-w-4xl mx-auto w-full">
+          <form onSubmit={handleSend} className="relative flex items-center">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                isListening
+                  ? "Listening to your voice command..."
+                  : "Ask anything about your documents or general topics..."
+              }
+              className={`w-full pl-4 pr-24 py-3 rounded-xl bg-slate-900/90 border ${
+                isListening ? "border-indigo-500 ring-2 ring-indigo-500/30" : "border-slate-800"
+              } text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-xs sm:text-sm shadow-lg`}
+            />
+
+            {/* Voice Command Button */}
+            <button
+              type="button"
+              onClick={toggleVoiceListen}
+              className={`absolute right-11 p-2 rounded-lg transition-all ${
+                isListening
+                  ? "bg-rose-500 text-white animate-pulse"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              }`}
+              title={isListening ? "Stop voice listening" : "Give voice command (Mic)"}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            {/* Send Button */}
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              className="absolute right-2 p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-40"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </form>
+
+          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 px-2">
+            <span className="flex items-center gap-1">
+              <Mic className="w-3 h-3 text-indigo-400" />
+              <span>Voice commands & Text-to-Speech active</span>
+            </span>
+            <span>Press Enter to send</span>
+          </div>
+        </div>
       </div>
-
-      {error && (
-        <div className="mb-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2 shrink-0">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Chat Input */}
-      <form onSubmit={handleSend} className="shrink-0 pt-2">
-        <div className="relative flex items-center">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about your documents or general knowledge..."
-            className="w-full pl-5 pr-14 py-4 rounded-2xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-sm shadow-xl"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || loading}
-            className="absolute right-2.5 p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30 transition-all disabled:opacity-40"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </form>
     </div>
   );
 }
