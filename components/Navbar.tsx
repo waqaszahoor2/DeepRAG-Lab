@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Cpu,
@@ -14,31 +14,21 @@ import {
   Sparkles,
   Menu,
   X,
-  User,
-  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, isAuthenticated, logout, requireAuth } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Upload Doc", href: "/upload", icon: FileText, protected: true },
-    { name: "AI Chat", href: "/chat", icon: MessageSquare, protected: true },
-    { name: "History", href: "/history", icon: History, protected: true },
-    { name: "Settings", href: "/settings", icon: Settings, protected: true },
+    { name: "Upload Doc", href: "/upload", icon: FileText },
+    { name: "AI Chat", href: "/chat", icon: MessageSquare },
+    { name: "History", href: "/history", icon: History },
+    { name: "Settings", href: "/settings", icon: Settings },
   ];
-
-  const handleNavClick = (e: React.MouseEvent, href: string, isProtected?: boolean) => {
-    if (isProtected && !isAuthenticated) {
-      e.preventDefault();
-      requireAuth();
-    }
-  };
 
   return (
     <nav className="border-b border-slate-800 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
@@ -54,7 +44,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Navigation Feature Links */}
+          {/* Desktop Navigation Feature Links — Open to all users to check and explore */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs font-medium">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -63,7 +53,6 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={(e) => handleNavClick(e, item.href, item.protected)}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all ${
                     isActive
                       ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
@@ -153,10 +142,7 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={(e) => {
-                    setMobileMenuOpen(false);
-                    handleNavClick(e, item.href, item.protected);
-                  }}
+                  onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
                     isActive
                       ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
