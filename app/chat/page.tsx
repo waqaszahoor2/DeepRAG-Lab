@@ -456,8 +456,8 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Messages Stream Container */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-4xl mx-auto w-full">
+        {/* Messages Stream Container — Full width ChatGPT responsive container */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-5xl mx-auto w-full">
           {messages.length === 0 ? (
             /* ChatGPT Empty Hero View with Quick Suggestions */
             <div className="h-full flex flex-col items-center justify-center text-center my-auto py-12">
@@ -493,19 +493,19 @@ export default function ChatPage() {
             messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex gap-3.5 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 sm:gap-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
               >
                 {msg.sender === "ai" && (
                   <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4 h-4" />
+                    <Bot className="w-4.5 h-4.5" />
                   </div>
                 )}
 
                 <div
-                  className={`max-w-2xl rounded-2xl p-4 transition-all ${
+                  className={`transition-all ${
                     msg.sender === "user"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                      : "glass-panel border border-slate-800/80 text-slate-200"
+                      ? "w-auto max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4.5 py-3.5 sm:px-5 sm:py-4 shadow-md shadow-indigo-600/10"
+                      : "w-full max-w-[95%] sm:max-w-[90%] lg:max-w-[85%] glass-panel bg-slate-900/70 border border-slate-800/80 rounded-2xl rounded-tl-sm p-4 sm:p-5 text-slate-100"
                   }`}
                 >
                   {/* Clean Answer Content */}
@@ -513,10 +513,10 @@ export default function ChatPage() {
 
                   {/* Document QA Sources & Confidence rendering */}
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-3">
+                    <div className="mt-3.5 pt-3 border-t border-slate-800/60">
                       <SourceCitation sources={msg.sources} />
                       {msg.confidence !== undefined && (
-                        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
+                        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           <span>Confidence: {Math.round(msg.confidence * 100)}%</span>
                         </div>
@@ -524,8 +524,12 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  {/* Clean Footer Actions & Timestamp */}
-                  <div className="flex items-center justify-between gap-3 mt-3 pt-2 border-t border-slate-800/40">
+                  {/* Unobtrusive Bottom Corner Footer for Actions & Timestamp */}
+                  <div
+                    className={`flex items-center justify-between gap-4 mt-3 pt-2 ${
+                      msg.sender === "ai" ? "border-t border-slate-800/40" : ""
+                    }`}
+                  >
                     {msg.sender === "ai" ? (
                       <div className="flex items-center gap-1.5">
                         {/* Text to Speech Voice Output */}
@@ -560,7 +564,11 @@ export default function ChatPage() {
                       <div />
                     )}
 
-                    <span className="text-[10px] text-slate-400/70">
+                    <span
+                      className={`text-[10px] ml-auto ${
+                        msg.sender === "user" ? "text-indigo-200/80" : "text-slate-400/70"
+                      }`}
+                    >
                       {msg.timestamp}
                     </span>
                   </div>
@@ -568,7 +576,7 @@ export default function ChatPage() {
 
                 {msg.sender === "user" && (
                   <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="w-4 h-4" />
+                    <User className="w-4.5 h-4.5" />
                   </div>
                 )}
               </div>
@@ -584,9 +592,9 @@ export default function ChatPage() {
               <div className="glass-panel border border-slate-800 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs text-slate-400">
                 <span className="font-medium text-slate-300">Thinking</span>
                 <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "300ms" }} />
                 </span>
               </div>
             </div>
@@ -596,7 +604,7 @@ export default function ChatPage() {
         </div>
 
         {/* ChatGPT Style Fixed Bottom Input Field with Voice Mic Command Button */}
-        <div className="shrink-0 p-4 max-w-4xl mx-auto w-full">
+        <div className="shrink-0 p-4 max-w-5xl mx-auto w-full">
           <form onSubmit={handleSend} className="relative flex items-center">
             <input
               type="text"
@@ -607,9 +615,9 @@ export default function ChatPage() {
                   ? "Listening to your voice command..."
                   : "Ask anything about your documents or general topics..."
               }
-              className={`w-full pl-4 pr-24 py-3 rounded-xl bg-slate-900/90 border ${
+              className={`w-full pl-4 pr-24 py-3.5 rounded-2xl bg-slate-900/90 border ${
                 isListening ? "border-indigo-500 ring-2 ring-indigo-500/30" : "border-slate-800"
-              } text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-xs sm:text-sm shadow-lg`}
+              } text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-xs sm:text-sm shadow-xl`}
             />
 
             {/* Voice Command Button */}
@@ -630,7 +638,7 @@ export default function ChatPage() {
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="absolute right-2 p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-40"
+              className="absolute right-2 p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-40"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
