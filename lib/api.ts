@@ -129,12 +129,50 @@ export async function deleteDocument(documentId: string) {
 }
 
 /**
- * Intelligent Conversational AI Engine for natural ChatGPT responses
+ * Detects whether a question string is written in Roman Urdu
+ */
+function isRomanUrdu(text: string): boolean {
+  const q = text.toLowerCase().trim();
+  const keywords = [
+    "kaise", "kese", "kya", "kia", "haal", "hal", "ho", "han", "hai", "hain",
+    "kyun", "kyn", "kab", "kahan", "kisi", "mujhe", "mjhe", "batao", "btao",
+    "karo", "kro", "rahe", "rahy", "ap", "aap", "kon", "kaun", "meri", "mera",
+    "ye", "yeh", "voh", "woh", "sirf", "lekin", "is", "us", "bhai", "sab", "sub",
+    "kaisa", "salam", "aoa", "hy", "hlo", "theek", "thik", "bhi"
+  ];
+  const words = q.split(/\s+/);
+  return words.some(w => keywords.includes(w)) || /^(hy|hlo|aoa|salam)/.test(q);
+}
+
+/**
+ * Intelligent Multi-Lingual Conversational AI Engine supporting Roman Urdu & English
  */
 function generateConversationalAIResponse(question: string, mode: string): string {
   const q = question.toLowerCase().trim();
+  const inRomanUrdu = isRomanUrdu(question);
 
-  if (/^(hi|hello|hey|greetings|hola|hy|hlo)/.test(q)) {
+  if (inRomanUrdu) {
+    if (/^(hy|hlo|hi|hello|hey|salam|aoa)/.test(q) || q.includes("kaise") || q.includes("kese") || q.includes("haal")) {
+      return "Aoa! Main DeepRAG AI hun. Main bilkul theek hun, aap sunain? Aap mujh se kisi bhi document (PDF, Word, TXT) ke baare mein sawal pooch sakte hain ya koi bhi general sawal pooch sakte hain.";
+    }
+
+    if (q.includes("kon ho") || q.includes("kaun ho") || q.includes("naam kya")) {
+      return "Main **DeepRAG AI** hun, aapka intelligent document aur research assistant. Main aap ki files aur general sawalat ka jawab Roman Urdu aur English dono mein dene ke liye hazir hun.";
+    }
+
+    if (q.includes("kya kar sakte") || q.includes("madad") || q.includes("kya kaam")) {
+      return "Main aap ki in kaamon mein madad kar sakta hun:\n\n1. **Document QA**: Apni PDFs, DOCX, ya TXT files upload karain aur un ke baare mein sawal pochain.\n2. **General Knowledge**: Coding, science aur general topics par guftagoo karain.\n3. **Smart Searching**: Apni files mein se accurate jawab aur exact page citations talash karain.";
+    }
+
+    if (q.includes("rag") || q.includes("vector")) {
+      return "### RAG (Retrieval-Augmented Generation) Kya Hai?\n\nRAG aik AI technique hai jismein Large Language Model (jaise Gemini 2.5) aap ke uploaded documents se accurate jawab talash karta hai.\n\n- **Step 1**: Aap ki file chote parts (chunks) mein divide hoti hai.\n- **Step 2**: Un chunks ko vector database mein store kiya jata hai.\n- **Step 3**: Jab aap sawal poochte hain, RAG sirf relevant jankari dhoond kar precise jawab deta hai.";
+    }
+
+    return `Aap ka sawal: "${question}" receive ho gaya hai.\n\nMain DeepRAG AI engine se aap ka jawab process kar raha hun. Aap Upload Doc tab se files bhi upload kar ke sawal pooch sakte hain!`;
+  }
+
+  // Standard English logic
+  if (/^(hi|hello|hey|greetings|hola)/.test(q)) {
     return "Hello! I am DeepRAG AI, your intelligent research and document assistant. I am doing great and ready to help! How can I assist you today? You can ask me general questions or upload files for instant analysis.";
   }
 
