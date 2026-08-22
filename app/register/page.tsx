@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cpu, ArrowRight, AlertCircle, Loader2, CheckCircle2, ShieldCheck, Database } from "lucide-react";
-import { signUp, signInWithGoogle } from "@/lib/authService";
+import { Cpu, ArrowRight, AlertCircle, Loader2, CheckCircle2, ShieldCheck, Database, Check, X } from "lucide-react";
+import { signUp, signInWithGoogle, validateStrongPassword } from "@/lib/authService";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function RegisterPage() {
@@ -22,10 +22,18 @@ export default function RegisterPage() {
     setHasSupabase(isSupabaseConfigured());
   }, []);
 
+  const passwordStatus = validateStrongPassword(password);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    if (!passwordStatus.isValid) {
+      setError("Please fulfill all strong password requirements before submitting.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -147,14 +155,14 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Email Address (Gmail / Official)
+              Email Address
             </label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@gmail.com"
+              placeholder="Enter your email address"
               className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
             <p className="text-[11px] text-slate-500 mt-1">Disposable/temporary emails are automatically blocked.</p>
@@ -169,7 +177,7 @@ export default function RegisterPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="alex_dev"
+              placeholder="Choose a username"
               className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -181,17 +189,50 @@ export default function RegisterPage() {
             <input
               type="password"
               required
-              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 8 characters"
+              placeholder="Enter a strong password"
               className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
+
+            {/* Password Strength Checklist */}
+            {password.length > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div className="text-[11px] font-semibold text-slate-400 mb-1">Strong Password Checklist:</div>
+                
+                <div className="grid grid-cols-2 gap-1 text-[11px]">
+                  <div className={`flex items-center gap-1.5 ${passwordStatus.hasMinLength ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {passwordStatus.hasMinLength ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    <span>8+ characters</span>
+                  </div>
+
+                  <div className={`flex items-center gap-1.5 ${passwordStatus.hasUpper ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {passwordStatus.hasUpper ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    <span>Uppercase (A-Z)</span>
+                  </div>
+
+                  <div className={`flex items-center gap-1.5 ${passwordStatus.hasLower ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {passwordStatus.hasLower ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    <span>Lowercase (a-z)</span>
+                  </div>
+
+                  <div className={`flex items-center gap-1.5 ${passwordStatus.hasNumber ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {passwordStatus.hasNumber ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    <span>Number (0-9)</span>
+                  </div>
+
+                  <div className={`col-span-2 flex items-center gap-1.5 ${passwordStatus.hasSpecial ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {passwordStatus.hasSpecial ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    <span>Special character (!@#$%^&*)</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || (password.length > 0 && !passwordStatus.isValid)}
             className="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-6"
           >
             {loading ? (

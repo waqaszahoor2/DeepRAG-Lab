@@ -13,6 +13,16 @@ export interface AuthResult {
   emailConfirmationRequired?: boolean;
 }
 
+export interface PasswordValidationResult {
+  isValid: boolean;
+  hasMinLength: boolean;
+  hasUpper: boolean;
+  hasLower: boolean;
+  hasNumber: boolean;
+  hasSpecial: boolean;
+  errors: string[];
+}
+
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
   '10minutemail.com',
   'guerrillamail.com',
@@ -41,6 +51,39 @@ export function isDisposableEmail(email: string): boolean {
   if (!email || !email.includes('@')) return false;
   const domain = email.split('@')[1].toLowerCase().trim();
   return DISPOSABLE_EMAIL_DOMAINS.has(domain);
+}
+
+/**
+ * Validates whether a password meets strong security criteria:
+ * - At least 8 characters
+ * - Uppercase letter (A-Z)
+ * - Lowercase letter (a-z)
+ * - Number (0-9)
+ * - Special character (!@#$%^&*...)
+ */
+export function validateStrongPassword(password: string): PasswordValidationResult {
+  const hasMinLength = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+  const errors: string[] = [];
+  if (!hasMinLength) errors.push("At least 8 characters");
+  if (!hasUpper) errors.push("At least 1 uppercase letter (A-Z)");
+  if (!hasLower) errors.push("At least 1 lowercase letter (a-z)");
+  if (!hasNumber) errors.push("At least 1 number (0-9)");
+  if (!hasSpecial) errors.push("At least 1 special character (!@#$%^&*)");
+
+  return {
+    isValid: hasMinLength && hasUpper && hasLower && hasNumber && hasSpecial,
+    hasMinLength,
+    hasUpper,
+    hasLower,
+    hasNumber,
+    hasSpecial,
+    errors,
+  };
 }
 
 /**
@@ -113,7 +156,7 @@ export async function signIn(email: string, password: string): Promise<AuthResul
 }
 
 /**
- * Unified Sign Up method with disposable email blocking
+ * Unified Sign Up method with strong password requirement & disposable email blocking
  */
 export async function signUp(
   email: string,
@@ -122,7 +165,14 @@ export async function signUp(
 ): Promise<AuthResult> {
   if (isDisposableEmail(email)) {
     throw new Error(
-      'Temporary or disposable email addresses are not allowed. Please use your official Gmail or permanent email account.'
+      'Temporary or disposable email addresses are not allowed. Please use your permanent email account.'
+    );
+  }
+
+  const passwordCheck = validateStrongPassword(password);
+  if (!passwordCheck.isValid) {
+    throw new Error(
+      `Password is not strong enough. Missing: ${passwordCheck.errors.join(', ')}`
     );
   }
 
