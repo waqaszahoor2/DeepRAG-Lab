@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 import chromadb
 
 from app.core.config import get_settings

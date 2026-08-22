@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Cpu, LogOut, User as UserIcon, FileText, MessageSquare, LayoutDashboard, History, Settings } from "lucide-react";
+import { Cpu, LogOut, FileText, MessageSquare, LayoutDashboard, History, Settings } from "lucide-react";
+import { signOut, getAuthToken } from "@/lib/authService";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -11,13 +13,35 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    // Check initial token
+    const token = getAuthToken();
     setIsLoggedIn(!!token);
+
+    // Listen to Supabase auth state changes if configured
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabase();
+      if (supabase) {
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+          if (session) {
+            localStorage.setItem("access_token", session.access_token);
+            localStorage.setItem("refresh_token", session.refresh_token);
+            setIsLoggedIn(true);
+          } else if (event === "SIGNED_OUT") {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            setIsLoggedIn(false);
+          }
+        });
+
+        return () => {
+          authListener.subscription.unsubscribe();
+        };
+      }
+    }
   }, [pathname]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+  const handleLogout = async () => {
+    await signOut();
     setIsLoggedIn(false);
     router.push("/login");
   };

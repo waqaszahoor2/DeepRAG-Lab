@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter
 
 from app.core.config import get_settings
