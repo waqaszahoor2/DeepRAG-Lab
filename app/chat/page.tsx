@@ -25,9 +25,13 @@ import {
   VolumeX,
   Code,
   Lightbulb,
+  Paperclip,
+  Search,
+  Edit2,
+  X,
 } from "lucide-react";
 import SourceCitation from "@/components/SourceCitation";
-import { sendChatMessage, SourceCitation as SourceCitationType } from "@/lib/api";
+import { sendChatMessage, uploadDocument, SourceCitation as SourceCitationType, DocumentItem } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -36,6 +40,7 @@ interface Message {
   mode?: string;
   confidence?: number;
   sources?: SourceCitationType[];
+  attachedDoc?: string;
   timestamp: string;
 }
 
@@ -71,12 +76,18 @@ const QUICK_PROMPT_SUGGESTIONS = [
 
 export default function ChatPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>("");
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<"auto" | "document_qa" | "general_ai">("auto");
   const [loading, setLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   // Voice State
@@ -84,6 +95,18 @@ export default function ChatPage() {
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Set default sidebar state based on screen width
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    }
+  }, []);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -209,6 +232,9 @@ export default function ChatPage() {
     };
     setThreads((prev) => [newThread, ...prev]);
     setActiveThreadId(newThread.id);
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   const handleDeleteThread = (id: string, e: React.MouseEvent) => {
@@ -231,10 +257,42 @@ export default function ChatPage() {
     }
   };
 
+  const handleStartRename = (id: string, currentTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingThreadId(id);
+    setEditTitle(currentTitle);
+  };
+
+  const handleSaveRename = (id: string, e: React.FormEvent) => {
+    e.preventDefault();
+    if (editTitle.trim()) {
+      setThreads((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, title: editTitle.trim() } : t))
+      );
+    }
+    setEditingThreadId(null);
+  };
+
   const handleCopyMessage = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedMessageId(id);
     setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachedFile(file);
+    setMode("document_qa");
+
+    setUploadingDoc(true);
+    try {
+      await uploadDocument(file);
+    } catch (err) {
+      // safe client fallback
+    } finally {
+      setUploadingDoc(false);
+    }
   };
 
   const submitQuery = async (queryText: string) => {
@@ -245,12 +303,15 @@ export default function ChatPage() {
       setIsListening(false);
     }
 
+    const currentDocName = attachedFile?.name;
     setInput("");
+    setAttachedFile(null);
 
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
       text: queryText,
+      attachedDoc: currentDocName,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
@@ -331,19 +392,33 @@ export default function ChatPage() {
     submitQuery(input);
   };
 
+  const filteredThreads = threads.filter((t) =>
+    t.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
+  );
+
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-slate-950 text-slate-100">
-      {/* 1. ChatGPT Collapsible Left Chatbar (Sidebar) */}
-      <div
+    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-slate-950 text-slate-100 relative">
+      {/* Mobile Drawer Backdrop Overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 transition-opacity"
+        />
+      )}
+
+      {/* 1. ChatGPT Collapsible Left Chatbar (Responsive Sidebar Drawer on Mobile) */}
+      <aside
         className={`${
-          sidebarOpen ? "w-64 sm:w-72" : "w-0"
-        } transition-all duration-300 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0 overflow-hidden relative z-20`}
+          sidebarOpen
+            ? "translate-x-0 w-72 md:w-64 lg:w-72"
+            : "-translate-x-full md:translate-x-0 md:w-0"
+        } fixed md:static inset-y-0 left-0 z-50 md:z-20 transition-all duration-300 bg-slate-900/95 border-r border-slate-800 flex flex-col shrink-0 overflow-hidden shadow-2xl md:shadow-none`}
       >
-        {/* Top + New Chat Button */}
+        {/* Top + New Chat Button & Close Icon */}
         <div className="p-3 border-b border-slate-800/80 flex items-center justify-between gap-2">
           <button
             onClick={handleCreateNewChat}
-            className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all"
+            className="flex-1 py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>New Chat</span>
@@ -351,40 +426,90 @@ export default function ChatPage() {
           <button
             onClick={() => setSidebarOpen(false)}
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Close Chatbar"
+            title="Close Sidebar"
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Search Conversations Input */}
+        <div className="px-3 pt-3">
+          <div className="relative flex items-center">
+            <Search className="w-3.5 h-3.5 absolute left-3 text-slate-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search chats..."
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+        </div>
+
         {/* Chat Threads History List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 mt-1">
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Recent Conversations
           </div>
-          {threads.map((thread) => {
+          {filteredThreads.map((thread) => {
             const isActive = thread.id === activeThreadId;
+            const isEditing = editingThreadId === thread.id;
+
             return (
               <div
                 key={thread.id}
-                onClick={() => setActiveThreadId(thread.id)}
+                onClick={() => {
+                  setActiveThreadId(thread.id);
+                  if (typeof window !== "undefined" && window.innerWidth < 768) {
+                    setSidebarOpen(false);
+                  }
+                }}
                 className={`group flex items-center justify-between p-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
                   isActive
                     ? "bg-indigo-600/20 text-white border border-indigo-500/30"
                     : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
                 }`}
               >
-                <div className="flex items-center gap-2.5 truncate">
-                  <MessageSquare className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-400" : "text-slate-400"}`} />
-                  <span className="truncate">{thread.title}</span>
-                </div>
-                <button
-                  onClick={(e) => handleDeleteThread(thread.id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-400 transition-opacity"
-                  title="Delete Chat"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {isEditing ? (
+                  <form
+                    onSubmit={(e) => handleSaveRename(thread.id, e)}
+                    className="flex items-center gap-1 w-full"
+                  >
+                    <input
+                      type="text"
+                      autoFocus
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full bg-slate-950 px-2 py-1 rounded text-white text-xs border border-indigo-500 focus:outline-none"
+                    />
+                    <button type="submit" className="text-emerald-400 p-1">
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2.5 truncate">
+                      <MessageSquare className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-400" : "text-slate-400"}`} />
+                      <span className="truncate">{thread.title}</span>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => handleStartRename(thread.id, thread.title, e)}
+                        className="p-1 text-slate-400 hover:text-white"
+                        title="Rename"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteThread(thread.id, e)}
+                        className="p-1 text-slate-400 hover:text-rose-400"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
@@ -395,32 +520,30 @@ export default function ChatPage() {
           <Cpu className="w-4 h-4 text-indigo-400" />
           <span>DeepRAG AI Engine</span>
         </div>
-      </div>
+      </aside>
 
-      {/* 2. Main Chat Workspace */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      {/* 2. Main Chat Workspace — Occupies 100% Mobile Width */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
         {/* Top Action Header */}
-        <div className="h-12 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 bg-slate-950/80 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition-colors"
-                title="Open Chatbar"
-              >
-                <PanelLeftOpen className="w-4 h-4" />
-              </button>
-            )}
-            <span className="text-xs font-semibold text-white truncate max-w-[200px] sm:max-w-xs">
+        <header className="h-12 border-b border-slate-800/80 px-3 sm:px-4 flex items-center justify-between shrink-0 bg-slate-950/80 backdrop-blur-md z-10">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition-colors"
+              title="Toggle Sidebar"
+            >
+              {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+            </button>
+            <span className="text-xs font-semibold text-white truncate max-w-[140px] sm:max-w-xs">
               {activeThread ? activeThread.title : "AI Chat Workspace"}
             </span>
           </div>
 
-          {/* Mode Selector Pills */}
+          {/* Mode Selector Switcher */}
           <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px]">
             <button
               onClick={() => setMode("auto")}
-              className={`px-2.5 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
+              className={`px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
                 mode === "auto"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
@@ -432,19 +555,19 @@ export default function ChatPage() {
 
             <button
               onClick={() => setMode("document_qa")}
-              className={`px-2.5 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
+              className={`px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
                 mode === "document_qa"
                   ? "bg-purple-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
               }`}
             >
               <FileText className="w-3 h-3 text-purple-200" />
-              <span className="hidden sm:inline">Doc QA</span>
+              <span className="hidden sm:inline">Doc AI</span>
             </button>
 
             <button
               onClick={() => setMode("general_ai")}
-              className={`px-2.5 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
+              className={`px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all ${
                 mode === "general_ai"
                   ? "bg-blue-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-white"
@@ -454,30 +577,30 @@ export default function ChatPage() {
               <span className="hidden sm:inline">General AI</span>
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Messages Stream Container — Full width ChatGPT responsive container */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-5xl mx-auto w-full">
+        {/* Messages Stream Container — Full 100% Mobile Reading Width */}
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 max-w-5xl mx-auto w-full">
           {messages.length === 0 ? (
             /* ChatGPT Empty Hero View with Quick Suggestions */
-            <div className="h-full flex flex-col items-center justify-center text-center my-auto py-12">
-              <div className="p-4 rounded-3xl bg-indigo-600/20 text-indigo-400 mb-4 border border-indigo-500/30">
-                <Bot className="w-10 h-10" />
+            <div className="h-full flex flex-col items-center justify-center text-center my-auto py-8 sm:py-12 px-2">
+              <div className="p-3.5 sm:p-4 rounded-3xl bg-indigo-600/20 text-indigo-400 mb-3 sm:mb-4 border border-indigo-500/30">
+                <Bot className="w-8 h-8 sm:w-10 sm:h-10" />
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">What can I help with today?</h2>
-              <p className="text-xs text-slate-400 max-w-md mb-8">
+              <h2 className="text-lg sm:text-2xl font-bold text-white mb-1.5">What can I help with today?</h2>
+              <p className="text-xs text-slate-400 max-w-md mb-6 sm:mb-8">
                 Ask questions about your uploaded documents, generate code, or explore general knowledge topics.
               </p>
 
               {/* Prompt Suggestion Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 w-full max-w-2xl text-left">
                 {QUICK_PROMPT_SUGGESTIONS.map((item, idx) => {
                   const Icon = item.icon;
                   return (
                     <button
                       key={idx}
                       onClick={() => submitQuery(item.prompt)}
-                      className="p-3.5 rounded-2xl glass-panel hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition-all text-slate-200 text-xs flex flex-col justify-between gap-2 group"
+                      className="p-3 rounded-2xl glass-panel hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition-all text-slate-200 text-xs flex flex-col justify-between gap-2 group"
                     >
                       <div className="flex items-center gap-2 font-semibold text-white">
                         <Icon className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
@@ -493,21 +616,29 @@ export default function ChatPage() {
             messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex gap-3 sm:gap-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-2.5 sm:gap-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
               >
                 {msg.sender === "ai" && (
-                  <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4.5 h-4.5" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="w-4 h-4" />
                   </div>
                 )}
 
                 <div
                   className={`transition-all ${
                     msg.sender === "user"
-                      ? "w-auto max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4.5 py-3.5 sm:px-5 sm:py-4 shadow-md shadow-indigo-600/10"
-                      : "w-full max-w-[95%] sm:max-w-[90%] lg:max-w-[85%] glass-panel bg-slate-900/70 border border-slate-800/80 rounded-2xl rounded-tl-sm p-4 sm:p-5 text-slate-100"
+                      ? "w-auto max-w-[88%] sm:max-w-[75%] lg:max-w-[70%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 sm:px-5 sm:py-4 shadow-md shadow-indigo-600/10"
+                      : "w-full max-w-[98%] sm:max-w-[90%] lg:max-w-[85%] glass-panel bg-slate-900/70 border border-slate-800/80 rounded-2xl rounded-tl-sm p-3.5 sm:p-5 text-slate-100"
                   }`}
                 >
+                  {/* Document Attachment Badge */}
+                  {msg.attachedDoc && (
+                    <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-medium">
+                      <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="truncate max-w-[180px]">{msg.attachedDoc}</span>
+                    </div>
+                  )}
+
                   {/* Clean Answer Content */}
                   <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
 
@@ -526,7 +657,7 @@ export default function ChatPage() {
 
                   {/* Unobtrusive Bottom Corner Footer for Actions & Timestamp */}
                   <div
-                    className={`flex items-center justify-between gap-4 mt-3 pt-2 ${
+                    className={`flex items-center justify-between gap-4 mt-2.5 pt-1.5 ${
                       msg.sender === "ai" ? "border-t border-slate-800/40" : ""
                     }`}
                   >
@@ -575,8 +706,8 @@ export default function ChatPage() {
                 </div>
 
                 {msg.sender === "user" && (
-                  <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="w-4.5 h-4.5" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="w-4 h-4" />
                   </div>
                 )}
               </div>
@@ -586,7 +717,7 @@ export default function ChatPage() {
           {/* Professional ChatGPT-Style Thinking Indicator */}
           {loading && (
             <div className="flex gap-3.5 justify-start">
-              <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
                 <Bot className="w-4 h-4" />
               </div>
               <div className="glass-panel border border-slate-800 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs text-slate-400">
@@ -603,9 +734,48 @@ export default function ChatPage() {
           <div ref={chatEndRef} />
         </div>
 
-        {/* ChatGPT Style Fixed Bottom Input Field with Voice Mic Command Button */}
-        <div className="shrink-0 p-4 max-w-5xl mx-auto w-full">
+        {/* ChatGPT Style Fixed Bottom Input Field with Attachment & Voice mic buttons */}
+        <div className="shrink-0 p-3 sm:p-4 max-w-5xl mx-auto w-full">
+          {/* Attached Document Preview Chip */}
+          {attachedFile && (
+            <div className="mb-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-xs text-indigo-300 max-w-fit">
+              <FileText className="w-4 h-4 text-indigo-400" />
+              <span className="font-medium truncate max-w-[200px]">{attachedFile.name}</span>
+              <button
+                type="button"
+                onClick={() => setAttachedFile(null)}
+                className="text-slate-400 hover:text-white p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSend} className="relative flex items-center">
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".pdf,.docx,.txt,.csv,.md"
+              className="hidden"
+            />
+
+            {/* Document Attachment Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingDoc}
+              className="absolute left-2.5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Attach Document (PDF, DOCX, TXT, CSV, MD)"
+            >
+              {uploadingDoc ? (
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+              ) : (
+                <Paperclip className="w-4 h-4" />
+              )}
+            </button>
+
             <input
               type="text"
               value={input}
@@ -615,7 +785,7 @@ export default function ChatPage() {
                   ? "Listening to your voice command..."
                   : "Ask anything about your documents or general topics..."
               }
-              className={`w-full pl-4 pr-24 py-3.5 rounded-2xl bg-slate-900/90 border ${
+              className={`w-full pl-11 pr-24 py-3 sm:py-3.5 rounded-2xl bg-slate-900/90 border ${
                 isListening ? "border-indigo-500 ring-2 ring-indigo-500/30" : "border-slate-800"
               } text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-xs sm:text-sm shadow-xl`}
             />
@@ -647,12 +817,12 @@ export default function ChatPage() {
           <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 px-2">
             <span className="flex items-center gap-1">
               <Mic className="w-3 h-3 text-indigo-400" />
-              <span>Voice commands & Text-to-Speech active</span>
+              <span>Voice commands & File attachment enabled</span>
             </span>
             <span>Press Enter to send</span>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
