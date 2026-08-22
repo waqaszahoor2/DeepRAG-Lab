@@ -43,6 +43,7 @@ export interface ChatHistoryItem {
   created_at: string;
 }
 
+// ─── Configuration ───────────────────────────────────────────
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
@@ -54,6 +55,8 @@ function getAuthHeaders(): HeadersInit {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
+
+// ─── Auth APIs ───────────────────────────────────────────────
 
 export async function registerUser(email: string, username: string, password: string) {
   const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
@@ -89,6 +92,8 @@ export async function fetchUserProfile(): Promise<User> {
   return res.json();
 }
 
+// ─── Document APIs ───────────────────────────────────────────
+
 export async function uploadDocument(file: File): Promise<DocumentItem> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   const formData = new FormData();
@@ -116,7 +121,7 @@ export async function fetchDocuments(): Promise<{ documents: DocumentItem[]; tot
     });
     if (!res.ok) throw new Error('Failed to fetch documents');
     return await res.json();
-  } catch (err: any) {
+  } catch {
     return { documents: [], total: 0 };
   }
 }
@@ -130,120 +135,175 @@ export async function deleteDocument(documentId: string) {
   return res.json();
 }
 
-/**
- * Real LLM Answer Generator — connects directly to OpenRouter / Gemini API.
- * NO static fallback strings or pre-canned replies.
- */
-async function generateDirectLLMAnswer(question: string): Promise<string> {
-  const activeOpenRouterKey =
-    OPENROUTER_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('openrouter_key') : '') || '';
+// ─── LLM Direct Call (Real AI Answers) ──────────────────────
+//
+// This function calls a real LLM (OpenRouter → Gemini REST API)
+// and returns the generated answer. There are ZERO hardcoded or
+// static fallback strings anywhere in this function.
+//
+// The flow:
+//   User question → OpenRouter API (Gemini model) → Real answer
+//   If OpenRouter fails → Google Gemini REST API → Real answer
+//   If both fail → throw error (shown as "Unable to generate response")
 
-  // Strategy 1: OpenRouter API Direct LLM Call
-  if (activeOpenRouterKey) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+async function callOpenRouterLLM(question: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://deeprag-lab.vercel.app",
+        "X-Title": "DeepRAG Lab",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-lite-001",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful, expert AI assistant. Answer any user question directly, comprehensively, and accurately. Always respond in the exact same language the user used. If the user writes in English, respond in English. If the user writes in Roman Urdu, respond in Roman Urdu. If the user writes in Hindi, respond in Hindi. Provide detailed, real answers. Never refuse to answer. Never return placeholder text, status messages, or system disclaimers.",
+          },
+          {
+            role: "user",
+            content: question,
+          },
+        ],
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content && content.trim().length > 0) {
+        return content.trim();
+      }
+    }
+  } catch {
+    // Network or parsing error — return null to try next provider
+  }
+  return null;
+}
+
+async function callGeminiDirectLLM(question: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${activeOpenRouterKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://deeprag-lab.vercel.app",
-          "X-Title": "DeepRAG Lab",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.0-flash-lite-001",
-          messages: [
+          contents: [
             {
-              role: "system",
-              content:
-                "You are a helpful, expert AI assistant. Answer any user question directly, comprehensively, and accurately. Always respond in the exact language used by the user (e.g. if Roman Urdu, answer in Roman Urdu; if English, answer in English). Never return placeholder status strings or system disclaimers.",
-            },
-            {
-              role: "user",
-              content: question,
+              parts: [{ text: question }],
             },
           ],
         }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content && content.trim()) {
-          return content.trim();
-        }
       }
-    } catch (err) {
-      // Fall through to Strategy 2
-    }
-  }
+    );
 
-  // Strategy 2: Google Gemini REST API Direct LLM Call
-  if (GEMINI_API_KEY) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: question }],
-              },
-            ],
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (content && content.trim()) {
-          return content.trim();
-        }
+    if (res.ok) {
+      const data = await res.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (content && content.trim().length > 0) {
+        return content.trim();
       }
-    } catch (err) {
-      // Fall through
     }
+  } catch {
+    // Network or parsing error — return null
   }
-
-  throw new Error("Unable to connect to AI LLM services. Please check network connection.");
+  return null;
 }
 
+async function generateDirectLLMAnswer(question: string): Promise<string> {
+  // Resolve the active OpenRouter key: env var > localStorage
+  const activeOpenRouterKey =
+    OPENROUTER_API_KEY ||
+    (typeof window !== 'undefined' ? localStorage.getItem('openrouter_key') : null) ||
+    '';
+
+  // Strategy 1: OpenRouter (wraps Gemini, Claude, etc.)
+  if (activeOpenRouterKey) {
+    const answer = await callOpenRouterLLM(question, activeOpenRouterKey);
+    if (answer) return answer;
+  }
+
+  // Strategy 2: Google Gemini REST API directly
+  if (GEMINI_API_KEY) {
+    const answer = await callGeminiDirectLLM(question, GEMINI_API_KEY);
+    if (answer) return answer;
+  }
+
+  // Both providers failed — throw real error (NO hardcoded fallback text)
+  throw new Error("LLM_PROVIDERS_UNAVAILABLE");
+}
+
+// ─── Chat API (Primary flow) ────────────────────────────────
+//
+// Priority order:
+//   1. Try FastAPI backend (localhost:8000) — full RAG pipeline
+//   2. If backend is unreachable → call LLM directly from frontend
+//   3. If LLM also fails → show clean error message to user
+
 export async function sendChatMessage(
-  question: string, 
+  question: string,
   mode: 'auto' | 'document_qa' | 'general_ai' = 'auto',
   document_ids?: string[]
 ): Promise<ChatResponse> {
+
+  // ── Step 1: Try the FastAPI backend first ──
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
     const res = await fetch(`${API_BASE}/api/v1/chat`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ question, mode, document_ids }),
+      signal: controller.signal,
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Chat request failed');
-    }
+    clearTimeout(timeoutId);
 
-    return await res.json();
-  } catch (err: any) {
-    // If backend is offline or network fails, run direct client LLM API generation
-    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('Chat request failed'))) {
-      const resolvedMode: 'document_qa' | 'general_ai' = mode === 'document_qa' ? 'document_qa' : 'general_ai';
-      const cleanAnswer = await generateDirectLLMAnswer(question);
-      return {
-        answer: cleanAnswer,
-        mode: resolvedMode,
-        confidence_score: resolvedMode === 'document_qa' ? 0.95 : undefined,
-        sources: [],
-        query_id: `query_${Date.now()}`,
-      };
+    if (res.ok) {
+      const data = await res.json();
+      // Validate that the backend returned a real answer, not an empty or error response
+      if (data.answer && data.answer.trim().length > 0) {
+        return data as ChatResponse;
+      }
     }
-    throw err;
+    // If response is not OK or answer is empty, fall through to direct LLM
+  } catch {
+    // Backend unreachable (network error, timeout, CORS) — fall through
+  }
+
+  // ── Step 2: Direct LLM call (OpenRouter / Gemini) ──
+  try {
+    const resolvedMode: 'document_qa' | 'general_ai' =
+      mode === 'document_qa' ? 'document_qa' : 'general_ai';
+
+    const llmAnswer = await generateDirectLLMAnswer(question);
+
+    return {
+      answer: llmAnswer,
+      mode: resolvedMode,
+      confidence_score: undefined,
+      sources: [],
+      query_id: `query_${Date.now()}`,
+    };
+  } catch {
+    // ── Step 3: Both backend AND LLM failed — return clean error ──
+    return {
+      answer: "I'm unable to generate a response right now. Please check that the NEXT_PUBLIC_OPENROUTER_API_KEY environment variable is configured in your Vercel project settings, then redeploy.",
+      mode: 'general_ai',
+      confidence_score: undefined,
+      sources: [],
+      query_id: `error_${Date.now()}`,
+    };
   }
 }
+
+// ─── Chat History API ────────────────────────────────────────
 
 export async function fetchChatHistory(): Promise<{ history: ChatHistoryItem[]; total: number }> {
   try {
@@ -252,7 +312,7 @@ export async function fetchChatHistory(): Promise<{ history: ChatHistoryItem[]; 
     });
     if (!res.ok) throw new Error('Failed to fetch chat history');
     return await res.json();
-  } catch (err: any) {
+  } catch {
     return { history: [], total: 0 };
   }
 }
