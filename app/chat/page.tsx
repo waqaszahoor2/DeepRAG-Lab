@@ -23,6 +23,8 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  Code,
+  Lightbulb,
 } from "lucide-react";
 import ConfidenceScore from "@/components/ConfidenceScore";
 import SourceCitation from "@/components/SourceCitation";
@@ -45,13 +47,28 @@ interface ChatThread {
   updatedAt: string;
 }
 
-const DEFAULT_WELCOME_MSG: Message = {
-  id: "welcome",
-  sender: "ai",
-  text: "Hello! I am DeepRAG Assistant. Ask me anything about your uploaded documents or general topics.",
-  mode: "document_qa",
-  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-};
+const QUICK_PROMPT_SUGGESTIONS = [
+  {
+    icon: FileText,
+    title: "Summarize Documents",
+    prompt: "Can you summarize key points from my uploaded documents?",
+  },
+  {
+    icon: Sparkles,
+    title: "Explain RAG System",
+    prompt: "What is RAG and how does vector search work?",
+  },
+  {
+    icon: Code,
+    title: "Write Code",
+    prompt: "Write a Python script to fetch data from an API and parse JSON.",
+  },
+  {
+    icon: Lightbulb,
+    title: "Brainstorm Ideas",
+    prompt: "Give me 5 innovative project ideas using AI and document search.",
+  },
+];
 
 export default function ChatPage() {
   const router = useRouter();
@@ -159,7 +176,7 @@ export default function ChatPage() {
     const initialThread: ChatThread = {
       id: `thread_${Date.now()}`,
       title: "New Chat",
-      messages: [DEFAULT_WELCOME_MSG],
+      messages: [],
       updatedAt: new Date().toISOString(),
     };
     setThreads([initialThread]);
@@ -174,7 +191,7 @@ export default function ChatPage() {
   }, [threads]);
 
   const activeThread = threads.find((t) => t.id === activeThreadId) || threads[0];
-  const messages = activeThread ? activeThread.messages : [DEFAULT_WELCOME_MSG];
+  const messages = activeThread ? activeThread.messages : [];
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -188,7 +205,7 @@ export default function ChatPage() {
     const newThread: ChatThread = {
       id: `thread_${Date.now()}`,
       title: "New Chat",
-      messages: [DEFAULT_WELCOME_MSG],
+      messages: [],
       updatedAt: new Date().toISOString(),
     };
     setThreads((prev) => [newThread, ...prev]);
@@ -202,7 +219,7 @@ export default function ChatPage() {
       const freshThread: ChatThread = {
         id: `thread_${Date.now()}`,
         title: "New Chat",
-        messages: [DEFAULT_WELCOME_MSG],
+        messages: [],
         updatedAt: new Date().toISOString(),
       };
       setThreads([freshThread]);
@@ -221,22 +238,20 @@ export default function ChatPage() {
     setTimeout(() => setCopiedMessageId(null), 2000);
   };
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading || !activeThread) return;
+  const submitQuery = async (queryText: string) => {
+    if (!queryText.trim() || loading || !activeThread) return;
 
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
     }
 
-    const userText = input.trim();
     setInput("");
 
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
-      text: userText,
+      text: queryText,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
@@ -244,7 +259,7 @@ export default function ChatPage() {
       prev.map((t) => {
         if (t.id === activeThreadId) {
           const updatedMessages = [...t.messages, userMsg];
-          const newTitle = t.title === "New Chat" ? userText.slice(0, 24) + "..." : t.title;
+          const newTitle = t.title === "New Chat" ? queryText.slice(0, 24) + "..." : t.title;
           return {
             ...t,
             title: newTitle,
@@ -259,7 +274,7 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      const res = await sendChatMessage(userText, mode);
+      const res = await sendChatMessage(queryText, mode);
 
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -291,7 +306,7 @@ export default function ChatPage() {
       const fallbackAiMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
-        text: `I received your question: "${userText}". How can I help you further?`,
+        text: `I received your question: "${queryText}". How can I assist you further?`,
         mode: mode === "document_qa" ? "document_qa" : "general_ai",
         confidence: 0.95,
         sources: [],
@@ -313,6 +328,11 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    submitQuery(input);
   };
 
   return (
@@ -442,87 +462,120 @@ export default function ChatPage() {
 
         {/* Messages Stream Container */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-4xl mx-auto w-full">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3.5 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.sender === "ai" && (
-                <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4" />
-                </div>
-              )}
+          {messages.length === 0 ? (
+            /* ChatGPT Empty Hero View with Quick Suggestions */
+            <div className="h-full flex flex-col items-center justify-center text-center my-auto py-12">
+              <div className="p-4 rounded-3xl bg-indigo-600/20 text-indigo-400 mb-4 border border-indigo-500/30">
+                <Bot className="w-10 h-10" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">What can I help with today?</h2>
+              <p className="text-xs text-slate-400 max-w-md mb-8">
+                Ask questions about your uploaded documents, generate code, or explore general knowledge topics.
+              </p>
 
+              {/* Prompt Suggestion Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
+                {QUICK_PROMPT_SUGGESTIONS.map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => submitQuery(item.prompt)}
+                      className="p-3.5 rounded-2xl glass-panel hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition-all text-slate-200 text-xs flex flex-col justify-between gap-2 group"
+                    >
+                      <div className="flex items-center gap-2 font-semibold text-white">
+                        <Icon className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+                        <span>{item.title}</span>
+                      </div>
+                      <p className="text-slate-400 text-[11px] leading-relaxed line-clamp-2">{item.prompt}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            messages.map((msg) => (
               <div
-                className={`max-w-2xl rounded-2xl p-4 transition-all ${
-                  msg.sender === "user"
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                    : "glass-panel border border-slate-800/80 text-slate-200"
-                }`}
+                key={msg.id}
+                className={`flex gap-3.5 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
               >
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <span className="text-[11px] font-semibold opacity-75">
-                    {msg.sender === "user" ? "You" : "DeepRAG AI"}
-                  </span>
-
-                  {msg.sender === "ai" && (
-                    <div className="flex items-center gap-2">
-                      {msg.mode && (
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-400 text-[9px] font-mono uppercase border border-slate-700">
-                          {msg.mode}
-                        </span>
-                      )}
-                      <ConfidenceScore score={msg.confidence} />
-
-                      {/* Text to Speech Voice Output */}
-                      <button
-                        onClick={() => toggleSpeakText(msg.id, msg.text)}
-                        className={`transition-colors p-1 ${
-                          speakingMsgId === msg.id ? "text-indigo-400" : "text-slate-400 hover:text-white"
-                        }`}
-                        title={speakingMsgId === msg.id ? "Stop voice reading" : "Listen to response"}
-                      >
-                        {speakingMsgId === msg.id ? (
-                          <VolumeX className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-                        ) : (
-                          <Volume2 className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-
-                      {/* Copy Message Button */}
-                      <button
-                        onClick={() => handleCopyMessage(msg.id, msg.text)}
-                        className="text-slate-400 hover:text-white transition-colors p-1"
-                        title="Copy message"
-                      >
-                        {copiedMessageId === msg.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-
-                {msg.sources && msg.sources.length > 0 && (
-                  <SourceCitation sources={msg.sources} />
+                {msg.sender === "ai" && (
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="w-4 h-4" />
+                  </div>
                 )}
 
-                <span className="block text-[9px] opacity-40 mt-2 text-right">
-                  {msg.timestamp}
-                </span>
-              </div>
+                <div
+                  className={`max-w-2xl rounded-2xl p-4 transition-all ${
+                    msg.sender === "user"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                      : "glass-panel border border-slate-800/80 text-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-[11px] font-semibold opacity-75">
+                      {msg.sender === "user" ? "You" : "DeepRAG AI"}
+                    </span>
 
-              {msg.sender === "user" && (
-                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                  <User className="w-4 h-4" />
+                    {msg.sender === "ai" && (
+                      <div className="flex items-center gap-2">
+                        {msg.mode && (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-400 text-[9px] font-mono uppercase border border-slate-700">
+                            {msg.mode}
+                          </span>
+                        )}
+                        <ConfidenceScore score={msg.confidence} />
+
+                        {/* Text to Speech Voice Output */}
+                        <button
+                          onClick={() => toggleSpeakText(msg.id, msg.text)}
+                          className={`transition-colors p-1 ${
+                            speakingMsgId === msg.id ? "text-indigo-400" : "text-slate-400 hover:text-white"
+                          }`}
+                          title={speakingMsgId === msg.id ? "Stop voice reading" : "Listen to response"}
+                        >
+                          {speakingMsgId === msg.id ? (
+                            <VolumeX className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
+                        {/* Copy Message Button */}
+                        <button
+                          onClick={() => handleCopyMessage(msg.id, msg.text)}
+                          className="text-slate-400 hover:text-white transition-colors p-1"
+                          title="Copy message"
+                        >
+                          {copiedMessageId === msg.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+
+                  {msg.sources && msg.sources.length > 0 && (
+                    <SourceCitation sources={msg.sources} />
+                  )}
+
+                  <span className="block text-[9px] opacity-40 mt-2 text-right">
+                    {msg.timestamp}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {msg.sender === "user" && (
+                  <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
 
           {loading && (
             <div className="flex gap-3.5 justify-start">
