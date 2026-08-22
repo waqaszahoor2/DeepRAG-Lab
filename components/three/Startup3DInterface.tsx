@@ -3,7 +3,18 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { motion } from "framer-motion";
-import { Sparkles, ShieldCheck, Zap, Database, ArrowRight } from "lucide-react";
+import {
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  Database,
+  ArrowRight,
+  FileText,
+  MessageSquare,
+  History,
+  Layers,
+  Search,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function Startup3DInterface() {
@@ -155,7 +166,7 @@ export default function Startup3DInterface() {
   }, []);
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden">
+    <div className="relative min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center overflow-hidden">
       {/* 3D Canvas Background */}
       <div
         ref={containerRef}
@@ -163,92 +174,158 @@ export default function Startup3DInterface() {
       />
 
       {/* Hero Content Overlay */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-12 pb-20">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 pb-12">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-indigo-300 text-sm font-medium mb-8 border border-indigo-500/20"
+          transition={{ duration: 0.6 }}
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-panel text-indigo-300 text-xs font-medium mb-6 border border-indigo-500/20"
         >
-          <Sparkles className="w-4 h-4 text-indigo-400" />
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
           <span>Enterprise Production AI RAG Platform</span>
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-tight mb-6"
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-tight mb-4"
         >
-          Unlock Deep Knowledge from <br />
+          Unlock Deep Knowledge from <br className="hidden sm:block" />
           <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             Your Documents
           </span>
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto mb-10 leading-relaxed"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
         >
           Upload PDFs, DOCX, CSVs, TXT, or Markdown. Ask complex questions and receive accurate answers with precise page-level citations, source verification, and confidence scoring powered by Gemini & OpenRouter.
         </motion.p>
 
+        {/* Decreased Button Sizes for Sleek Design */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
+          transition={{ duration: 0.6, delay: 0.45 }}
+          className="flex flex-row items-center justify-center gap-3 mb-10"
         >
           <Link
-            href="/register"
-            className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-lg shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all hover:scale-105"
+            href="/upload"
+            className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
           >
             <span>Launch DeepRAG</span>
-            <ArrowRight className="w-5 h-5" />
+            <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/login"
-            className="w-full sm:w-auto px-8 py-4 rounded-xl glass-panel hover:bg-slate-800/80 text-slate-200 font-semibold text-lg border border-slate-700 transition-all"
+            className="px-5 py-2.5 rounded-lg glass-panel hover:bg-slate-800/80 text-slate-200 font-medium text-xs sm:text-sm border border-slate-700 transition-all"
           >
             Sign In to Dashboard
           </Link>
         </motion.div>
 
+        {/* On-Screen Feature Toolbar Shortcuts */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="mb-12 p-3 rounded-2xl glass-panel border border-slate-800/80 max-w-3xl mx-auto"
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
+            Platform Capabilities Shortcuts
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left">
+            <Link
+              href="/upload"
+              className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 flex items-center gap-2.5 group transition-colors"
+            >
+              <div className="p-1.5 rounded-lg bg-indigo-600/20 text-indigo-400 group-hover:scale-110 transition-transform">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">Document Ingestion</p>
+                <p className="text-[10px] text-slate-400">PDF, DOCX, CSV, TXT</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/chat"
+              className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 flex items-center gap-2.5 group transition-colors"
+            >
+              <div className="p-1.5 rounded-lg bg-purple-600/20 text-purple-400 group-hover:scale-110 transition-transform">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">AI RAG QA</p>
+                <p className="text-[10px] text-slate-400">Page-level citations</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/history"
+              className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 flex items-center gap-2.5 group transition-colors"
+            >
+              <div className="p-1.5 rounded-lg bg-pink-600/20 text-pink-400 group-hover:scale-110 transition-transform">
+                <History className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">Query History</p>
+                <p className="text-[10px] text-slate-400">Traceable logs</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard"
+              className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 flex items-center gap-2.5 group transition-colors"
+            >
+              <div className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 group-hover:scale-110 transition-transform">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">Vector Store</p>
+                <p className="text-[10px] text-slate-400">ChromaDB & Qdrant</p>
+              </div>
+            </Link>
+          </div>
+        </motion.div>
+
         {/* Feature Cards Grid */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left"
+          transition={{ duration: 0.6, delay: 0.75 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-5 text-left"
         >
-          <div className="glass-card p-6 rounded-2xl">
-            <div className="p-3 w-fit rounded-xl bg-indigo-600/20 text-indigo-400 mb-4">
-              <Database className="w-6 h-6" />
+          <div className="glass-card p-5 rounded-2xl">
+            <div className="p-2.5 w-fit rounded-xl bg-indigo-600/20 text-indigo-400 mb-3">
+              <Database className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Vector RAG Engine</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h3 className="text-base font-bold text-white mb-1.5">Vector RAG Engine</h3>
+            <p className="text-slate-400 text-xs leading-relaxed">
               Hybrid vector search powered by ChromaDB & Qdrant with page-level metadata tracking.
             </p>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl">
-            <div className="p-3 w-fit rounded-xl bg-purple-600/20 text-purple-400 mb-4">
-              <Zap className="w-6 h-6" />
+          <div className="glass-card p-5 rounded-2xl">
+            <div className="p-2.5 w-fit rounded-xl bg-purple-600/20 text-purple-400 mb-3">
+              <Zap className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Dual LLM Fallback</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h3 className="text-base font-bold text-white mb-1.5">Dual LLM Fallback</h3>
+            <p className="text-slate-400 text-xs leading-relaxed">
               Gemini 2.5 Flash as primary with instant OpenRouter failover for 99.9% availability.
             </p>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl">
-            <div className="p-3 w-fit rounded-xl bg-emerald-600/20 text-emerald-400 mb-4">
-              <ShieldCheck className="w-6 h-6" />
+          <div className="glass-card p-5 rounded-2xl">
+            <div className="p-2.5 w-fit rounded-xl bg-emerald-600/20 text-emerald-400 mb-3">
+              <ShieldCheck className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Production Security</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h3 className="text-base font-bold text-white mb-1.5">Production Security</h3>
+            <p className="text-slate-400 text-xs leading-relaxed">
               JWT auth, bcrypt encryption, per-IP rate limiting, and prompt-injection detection.
             </p>
           </div>
