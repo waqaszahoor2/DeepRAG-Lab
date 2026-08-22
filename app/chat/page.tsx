@@ -302,13 +302,10 @@ export default function ChatPage() {
         router.push("/login");
         return;
       }
-      const fallbackAiMsg: Message = {
+      const errorAiMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
-        text: `I received your question: "${queryText}". How can I assist you further?`,
-        mode: mode === "document_qa" ? "document_qa" : "general_ai",
-        confidence: 0.95,
-        sources: [],
+        text: "Unable to generate response. Please try again.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
@@ -317,7 +314,7 @@ export default function ChatPage() {
           if (t.id === activeThreadId) {
             return {
               ...t,
-              messages: [...t.messages, fallbackAiMsg],
+              messages: [...t.messages, errorAiMsg],
               updatedAt: new Date().toISOString(),
             };
           }
@@ -396,7 +393,7 @@ export default function ChatPage() {
         {/* Sidebar Footer */}
         <div className="p-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-2">
           <Cpu className="w-4 h-4 text-indigo-400" />
-          <span>Gemini 2.5 RAG Engine</span>
+          <span>DeepRAG AI Engine</span>
         </div>
       </div>
 
@@ -511,10 +508,20 @@ export default function ChatPage() {
                       : "glass-panel border border-slate-800/80 text-slate-200"
                   }`}
                 >
+                  {/* Clean Answer Content */}
                   <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
 
+                  {/* Document QA Sources & Confidence rendering */}
                   {msg.sources && msg.sources.length > 0 && (
-                    <SourceCitation sources={msg.sources} />
+                    <div className="mt-3">
+                      <SourceCitation sources={msg.sources} />
+                      {msg.confidence !== undefined && (
+                        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span>Confidence: {Math.round(msg.confidence * 100)}%</span>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Clean Footer Actions & Timestamp */}
@@ -568,14 +575,19 @@ export default function ChatPage() {
             ))
           )}
 
+          {/* Professional ChatGPT-Style Thinking Indicator */}
           {loading && (
             <div className="flex gap-3.5 justify-start">
               <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
                 <Bot className="w-4 h-4" />
               </div>
               <div className="glass-panel border border-slate-800 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs text-slate-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                <span>DeepRAG AI is thinking...</span>
+                <span className="font-medium text-slate-300">Thinking</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
               </div>
             </div>
           )}

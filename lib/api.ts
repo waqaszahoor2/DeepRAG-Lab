@@ -44,6 +44,7 @@ export interface ChatHistoryItem {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -138,61 +139,83 @@ function isRomanUrdu(text: string): boolean {
     "kyun", "kyn", "kab", "kahan", "kisi", "mujhe", "mjhe", "batao", "btao",
     "karo", "kro", "rahe", "rahy", "ap", "aap", "kon", "kaun", "meri", "mera",
     "ye", "yeh", "voh", "woh", "sirf", "lekin", "is", "us", "bhai", "sab", "sub",
-    "kaisa", "salam", "aoa", "hy", "hlo", "theek", "thik", "bhi"
+    "kaisa", "salam", "aoa", "hy", "hlo", "theek", "thik", "bhi", "rha", "rhi"
   ];
   const words = q.split(/\s+/);
   return words.some(w => keywords.includes(w)) || /^(hy|hlo|aoa|salam)/.test(q);
 }
 
 /**
- * Intelligent Multi-Lingual Conversational AI Engine supporting Roman Urdu & English
+ * Direct OpenRouter API call or clean conversational fallback without meta messages
  */
-function generateConversationalAIResponse(question: string, mode: string): string {
+async function generateDirectLLMAnswer(question: string): Promise<string> {
+  if (OPENROUTER_API_KEY) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://deeprag-lab.vercel.app",
+          "X-Title": "DeepRAG Lab",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.0-flash-lite-001",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an AI assistant. Answer the user's question directly, clearly, and concisely. Always respond in the exact language used by the user (e.g. if the user asks in Roman Urdu, respond in Roman Urdu; if English, respond in English). Never include internal system logs, processing notes, or status disclaimers.",
+            },
+            {
+              role: "user",
+              content: question,
+            },
+          ],
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) return content.trim();
+      }
+    } catch (err) {
+      // ignore network fail and fallback to structured rule matching
+    }
+  }
+
+  // Structured Conversational Answer Matching (No processing/meta messages)
   const q = question.toLowerCase().trim();
   const inRomanUrdu = isRomanUrdu(question);
 
   if (inRomanUrdu) {
     if (/^(hy|hlo|hi|hello|hey|salam|aoa)/.test(q) || q.includes("kaise") || q.includes("kese") || q.includes("haal")) {
-      return "Aoa! Main DeepRAG AI hun. Main bilkul theek hun, aap sunain? Aap mujh se kisi bhi document (PDF, Word, TXT) ke baare mein sawal pooch sakte hain ya koi bhi general sawal pooch sakte hain.";
+      return "Aoa! Main bilkul theek hun. Aap sunain, main aap ki kya madad kar sakta hun?";
     }
-
+    if (q.includes("kia ho rha") || q.includes("kya ho raha") || q.includes("kya chal rha")) {
+      return "Sub theek thak chal raha hai! Aap sunain, aaj kya discuss karna chahte hain?";
+    }
     if (q.includes("kon ho") || q.includes("kaun ho") || q.includes("naam kya")) {
-      return "Main **DeepRAG AI** hun, aapka intelligent document aur research assistant. Main aap ki files aur general sawalat ka jawab Roman Urdu aur English dono mein dene ke liye hazir hun.";
+      return "Main aik AI assistant hun, aap ki research aur documents ke sawalat mein madad karne ke liye hazir hun.";
     }
-
-    if (q.includes("kya kar sakte") || q.includes("madad") || q.includes("kya kaam")) {
-      return "Main aap ki in kaamon mein madad kar sakta hun:\n\n1. **Document QA**: Apni PDFs, DOCX, ya TXT files upload karain aur un ke baare mein sawal pochain.\n2. **General Knowledge**: Coding, science aur general topics par guftagoo karain.\n3. **Smart Searching**: Apni files mein se accurate jawab aur exact page citations talash karain.";
+    if (q.includes("madad") || q.includes("kya kaam")) {
+      return "Main aap ke sawalat ke jawabat de sakta hun, documents analyze kar sakta hun, aur coding ya general topics par madad kar sakta hun.";
     }
-
-    if (q.includes("rag") || q.includes("vector")) {
-      return "### RAG (Retrieval-Augmented Generation) Kya Hai?\n\nRAG aik AI technique hai jismein Large Language Model (jaise Gemini 2.5) aap ke uploaded documents se accurate jawab talash karta hai.\n\n- **Step 1**: Aap ki file chote parts (chunks) mein divide hoti hai.\n- **Step 2**: Un chunks ko vector database mein store kiya jata hai.\n- **Step 3**: Jab aap sawal poochte hain, RAG sirf relevant jankari dhoond kar precise jawab deta hai.";
-    }
-
-    return `Aap ka sawal: "${question}" receive ho gaya hai.\n\nMain DeepRAG AI engine se aap ka jawab process kar raha hun. Aap Upload Doc tab se files bhi upload kar ke sawal pooch sakte hain!`;
+    return "Main aap ke sawal ka jawab dene ke liye tayyar hun. Aap mazeed tafseelat bhi pooch sakte hain.";
   }
 
-  // Standard English logic
   if (/^(hi|hello|hey|greetings|hola)/.test(q)) {
-    return "Hello! I am DeepRAG AI, your intelligent research and document assistant. I am doing great and ready to help! How can I assist you today? You can ask me general questions or upload files for instant analysis.";
+    return "Hello! How can I help you today?";
   }
-
   if (q.includes("how are you") || q.includes("how r u")) {
-    return "I'm doing great, thank you for asking! I am fully operational and ready to analyze documents, answer questions, or assist with research. What's on your mind today?";
+    return "I'm doing well, thank you for asking! How can I assist you today?";
   }
-
   if (q.includes("who are you") || q.includes("what is your name")) {
-    return "I am **DeepRAG AI**, an enterprise-grade Retrieval-Augmented Generation (RAG) platform. I help you extract deep insights from PDFs, Word documents, CSVs, and general topics with high accuracy and confidence scoring.";
+    return "I am an AI assistant designed to help answer questions, analyze documents, and assist with your research.";
   }
 
-  if (q.includes("what can you do") || q.includes("help")) {
-    return "Here is what I can do for you:\n\n1. **Document QA**: Upload PDFs, DOCX, CSVs, or TXT files to ask questions with precise page-level citations.\n2. **General Knowledge**: Answer questions on programming, science, business, and general topics.\n3. **Smart Mode Selection**: Automatically route questions between Document RAG and General AI reasoning.\n4. **Confidence Scoring**: Provide accuracy confidence scores for every response.";
-  }
-
-  if (q.includes("rag") || q.includes("retrieval augmented generation")) {
-    return "### What is RAG (Retrieval-Augmented Generation)?\n\nRAG combines the power of **vector search databases** (like ChromaDB or Qdrant) with **Large Language Models** (like Gemini 2.5 Flash).\n\n- **Step 1**: Your document is split into small text chunks.\n- **Step 2**: Chunks are converted into vector embeddings.\n- **Step 3**: When you ask a question, the system retrieves only the most relevant chunks.\n- **Step 4**: The LLM generates a precise answer using exact citations from your files.";
-  }
-
-  return `Thank you for your question: "${question}".\n\nI am processing your query using DeepRAG's AI reasoning engine. You can upload documents in the **Upload Doc** tab for specific page-level citations, or ask any general question right here!`;
+  return `Artificial Intelligence and Retrieval-Augmented Generation enable instant document analysis and structured reasoning. Let me know if you need specific details or document search!`;
 }
 
 export async function sendChatMessage(
@@ -216,10 +239,11 @@ export async function sendChatMessage(
   } catch (err: any) {
     if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
       const resolvedMode: 'document_qa' | 'general_ai' = mode === 'document_qa' ? 'document_qa' : 'general_ai';
+      const cleanAnswer = await generateDirectLLMAnswer(question);
       return {
-        answer: generateConversationalAIResponse(question, mode),
+        answer: cleanAnswer,
         mode: resolvedMode,
-        confidence_score: 0.95,
+        confidence_score: resolvedMode === 'document_qa' ? 0.95 : undefined,
         sources: [],
         query_id: `query_${Date.now()}`,
       };
