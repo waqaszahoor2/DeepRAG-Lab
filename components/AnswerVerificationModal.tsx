@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api";
 import { X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 export interface ClaimDetail {
@@ -37,9 +38,9 @@ export default function AnswerVerificationModal({
   useEffect(() => {
     if (isOpen && answer) {
       setLoading(true);
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiBase = getApiBaseUrl();
 
-      fetch(`${API_BASE}/api/v1/chat/verify-answer`, {
+      fetch(`${apiBase}/api/v1/chat/verify-answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answer, sources }),

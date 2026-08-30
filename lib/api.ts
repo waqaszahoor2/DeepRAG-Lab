@@ -87,8 +87,21 @@ export interface ConversationDetail {
   messages: ConversationMessageItem[];
 }
 
-// ─── Configuration ───────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return "";
+    }
+  }
+  return "http://localhost:8000";
+}
+
+const API_BASE = getApiBaseUrl();
+
 
 export class ApiError extends Error {
   status: number;

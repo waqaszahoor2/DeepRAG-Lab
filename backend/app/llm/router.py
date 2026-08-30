@@ -82,7 +82,8 @@ async def generate_answer(
             continue
 
     error_details = "; ".join(errors) if errors else "No providers configured."
-    raise LLMProviderError(f"All LLM providers failed. {error_details}")
+    logger.error("All LLM providers failed: %s", error_details)
+    raise LLMProviderError("The AI service is temporarily unavailable. Please try again shortly.")
 
 
 async def generate_answer_stream(
@@ -119,4 +120,6 @@ async def generate_answer_stream(
             continue
 
     error_details = "; ".join(errors) if errors else "No providers configured."
-    raise LLMProviderError(f"All LLM providers failed for streaming. {error_details}")
+    logger.error("All LLM providers failed for streaming: %s", error_details)
+    raise LLMProviderError("The AI service is temporarily unavailable. Please try again shortly.")
+

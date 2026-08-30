@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Settings, User as UserIcon, Cpu, Database } from "lucide-react";
 import { getCurrentUser } from "@/lib/authService";
+import { getApiBaseUrl } from "@/lib/api";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email: string; username: string } | null>(null);
@@ -18,7 +19,7 @@ export default function SettingsPage() {
         setUser(null);
       }
       try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const apiBase = getApiBaseUrl();
         const res = await fetch(`${apiBase}/api/v1/health/ready`);
         if (res.ok) {
           const data = await res.json();

@@ -89,17 +89,32 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(DeepRAGError)
     async def deeprag_exception_handler(request: Request, exc: DeepRAGError):
+        rid = request_id_ctx.get() or request.headers.get("X-Request-ID", "unknown")
+        if exc.status_code >= 500 or "LLM" in exc.__class__.__name__:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "error": f"The AI service is temporarily unavailable. Please try again shortly. (Request ID: {rid})",
+                    "status_code": exc.status_code,
+                    "request_id": rid,
+                },
+            )
         return JSONResponse(
             status_code=exc.status_code,
-            content={"error": exc.message, "status_code": exc.status_code},
+            content={"error": exc.message, "status_code": exc.status_code, "request_id": rid},
         )
 
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
         logger.exception("Unhandled exception: %s", exc)
+        rid = request_id_ctx.get() or request.headers.get("X-Request-ID", "unknown")
         return JSONResponse(
             status_code=500,
-            content={"error": "An internal server error occurred.", "status_code": 500},
+            content={
+                "error": f"An internal server error occurred. Please try again shortly. (Request ID: {rid})",
+                "status_code": 500,
+                "request_id": rid,
+            },
         )
 
     # ── Routes ───────────────────────────────────────────────────────
