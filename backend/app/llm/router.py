@@ -16,21 +16,15 @@ from app.core.exceptions import LLMProviderError
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
 from app.llm.gemini import GeminiProvider
-from app.llm.openrouter import OpenRouterProvider
-from app.llm.zai import ZAIProvider
 
 logger = get_logger(__name__)
 
-# Instantiate providers
+# Instantiate primary Gemini provider
 _gemini = GeminiProvider()
-_zai = ZAIProvider()
-_openrouter = OpenRouterProvider()
 
-# Provider reliability scores for confidence calculation
+# Provider reliability score for confidence calculation
 PROVIDER_RELIABILITY: dict[str, float] = {
     "Gemini": 1.0,
-    "Z.AI": 0.95,
-    "OpenRouter": 0.9,
 }
 
 
