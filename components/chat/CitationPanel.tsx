@@ -25,25 +25,25 @@ export default function CitationPanel({
   }, [hoveredIndex]);
 
   return (
-    <div className="h-full flex flex-col bg-[#050816]">
+    <div className="h-full flex flex-col bg-white dark:bg-[#050816] text-slate-900 dark:text-slate-100 transition-colors">
       {/* Panel Header */}
-      <div className="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+          <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
             <Bookmark className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-bold text-sm text-white">Sources</h3>
-            <p className="text-[10px] text-slate-400">{sources.length} retrieved {sources.length === 1 ? "source" : "sources"}</p>
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Sources</h3>
+            <p className="text-[10px] text-slate-600 dark:text-slate-400">{sources.length} retrieved {sources.length === 1 ? "source" : "sources"}</p>
           </div>
         </div>
 
-        <div className="lg:hidden absolute top-1.5 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-white/15" />
+        <div className="lg:hidden absolute top-1.5 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-slate-300 dark:bg-white/15" />
 
         {onClose && (
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            className="p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

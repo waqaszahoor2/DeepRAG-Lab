@@ -470,7 +470,7 @@ export default function ChatLayout() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-[#050816] text-slate-100 overflow-hidden relative">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-[#050816] text-slate-900 dark:text-slate-100 overflow-hidden relative transition-colors duration-200">
       {/* ── Left Chat Sidebar ─────────────────────────────── */}
       <ChatSidebar
         threads={threads}
@@ -484,19 +484,19 @@ export default function ChatLayout() {
       />
 
       {/* ── Main Conversation Workspace ───────────────────── */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#050816] relative">
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#050816] relative transition-colors">
         {/* Minimal Header */}
-        <header className="h-14 border-b border-white/5 px-4 sm:px-6 flex items-center justify-between shrink-0 bg-[#050816]/80 backdrop-blur-md">
+        <header className="h-14 border-b border-slate-200 dark:border-slate-800/80 px-4 sm:px-6 flex items-center justify-between shrink-0 bg-white/80 dark:bg-[#050816]/80 backdrop-blur-md transition-colors">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label="Open chat history"
-              className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
             >
               {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
             </button>
 
-            <h2 className="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-xs">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-xs">
               {activeThread?.title}
             </h2>
           </div>
@@ -506,7 +506,7 @@ export default function ChatLayout() {
               value={mode}
               onChange={(e) => setMode(e.target.value as any)}
               aria-label="Response mode"
-              className="bg-[#111827] border border-white/5 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500/50"
+              className="bg-slate-100 dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-300 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
             >
               <option value="auto">🤖 Auto Router</option>
               <option value="document_qa">📚 Document RAG</option>
@@ -519,7 +519,7 @@ export default function ChatLayout() {
                 aria-label="Select documents"
                 value={selectedDocumentIds}
                 onChange={(event) => setSelectedDocumentIds(Array.from(event.target.selectedOptions, (option) => option.value))}
-                className="hidden max-w-40 rounded-xl border border-white/5 bg-[#111827] px-2 py-2 text-xs text-slate-300 outline-none sm:block"
+                className="hidden max-w-40 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#111827] px-2 py-2 text-xs text-slate-800 dark:text-slate-300 outline-none sm:block"
                 title="Filter by documents"
               >
                 {documents.map((document) => <option key={document.id} value={document.id}>{document.original_filename}</option>)}
@@ -528,14 +528,14 @@ export default function ChatLayout() {
 
             <button
               onClick={() => setCitationPanelOpen(!citationPanelOpen)}
-              className={`p-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition-colors ${
+              className={`p-1.5 min-h-[44px] sm:min-h-0 rounded-xl border text-xs flex items-center gap-1.5 transition-colors ${
                 citationPanelOpen
-                  ? "bg-indigo-600/20 text-indigo-300 border-indigo-500/30"
-                  : "bg-[#111827] text-slate-400 border-white/5 hover:text-white"
+                  ? "bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 font-semibold"
+                  : "bg-slate-100 dark:bg-[#111827] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white"
               }`}
               title="Toggle Sources Sidebar"
             >
-              <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+              <Bookmark className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span className="hidden sm:inline">Sources ({activeSources.length})</span>
             </button>
           </div>
@@ -575,7 +575,7 @@ export default function ChatLayout() {
 
       {/* ── Right Source Panel ────────────────────────────── */}
       <aside
-        className={`fixed inset-x-0 bottom-0 z-50 h-[min(72vh,560px)] w-full bg-[#050816] border-t border-white/10 backdrop-blur-md transition-transform duration-300 flex flex-col lg:inset-y-14 lg:bottom-auto lg:right-0 lg:left-auto lg:h-auto lg:w-80 lg:border-l lg:border-t-0 ${
+        className={`fixed inset-x-0 bottom-0 z-50 h-[min(72vh,560px)] w-full bg-white dark:bg-[#050816] border-t border-slate-200 dark:border-slate-800 backdrop-blur-md transition-transform duration-300 flex flex-col lg:inset-y-14 lg:bottom-auto lg:right-0 lg:left-auto lg:h-auto lg:w-80 lg:border-l lg:border-t-0 ${
           citationPanelOpen ? "translate-y-0 lg:translate-x-0" : "translate-y-full lg:translate-x-full"
         } lg:relative lg:translate-y-0 ${citationPanelOpen ? "lg:flex" : "lg:hidden"}`}
       >

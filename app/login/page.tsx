@@ -127,36 +127,36 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050816] text-slate-100 flex flex-col lg:flex-row overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#050816] text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row overflow-x-hidden transition-colors duration-200">
       {/* ── Left Column: Interactive 3D DeepRAG Visualization (55% Desktop) ── */}
-      <div className="w-full lg:w-[55%] min-h-[300px] sm:min-h-[380px] lg:min-h-screen relative shrink-0">
+      <div className="w-full lg:w-[55%] min-h-[280px] sm:min-h-[360px] lg:min-h-screen relative shrink-0">
         <Auth3DInterface />
       </div>
 
       {/* ── Right Column: Modern Sign-In Card (45% Desktop) ── */}
-      <div className="w-full lg:w-[45%] flex items-center justify-center p-4 sm:p-8 lg:p-12 relative z-10 bg-[#050816]/95 backdrop-blur-xl">
-        <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl glass-panel border border-white/10 shadow-2xl space-y-6">
+      <div className="w-full lg:w-[45%] flex items-center justify-center p-4 sm:p-8 lg:p-12 relative z-10 bg-white/95 dark:bg-[#050816]/95 backdrop-blur-xl transition-colors">
+        <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl glass-panel border border-slate-200 dark:border-white/10 shadow-2xl space-y-6">
           {/* Logo & Welcome Header */}
           <div className="flex flex-col items-center text-center space-y-2">
             <Link href="/" className="inline-flex items-center gap-2 group mb-1">
               <div className="p-2 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 group-hover:scale-105 transition-transform">
                 <Cpu className="w-5 h-5" />
               </div>
-              <span className="font-extrabold text-xl tracking-tight text-white">
-                DeepRAG <span className="text-indigo-400 font-medium">Lab</span>
+              <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">
+                DeepRAG <span className="text-indigo-600 dark:text-indigo-400 font-medium">Lab</span>
               </span>
             </Link>
-            <h1 className="text-2xl font-extrabold text-white">Welcome Back</h1>
-            <p className="text-xs text-slate-400">Sign in to your enterprise RAG account</p>
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Welcome Back</h1>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Sign in to your enterprise RAG account</p>
           </div>
 
           {/* User Error Banner */}
           {error && (
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-3">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-semibold text-rose-200">Sign In Error</p>
-                <p className="text-rose-300/90 mt-0.5 leading-relaxed">{error}</p>
+                <p className="font-semibold text-rose-800 dark:text-rose-200">Sign In Error</p>
+                <p className="text-rose-700/90 dark:text-rose-300/90 mt-0.5 leading-relaxed">{error}</p>
                 {showResendBtn && (
                   <div className="mt-2.5 flex items-center gap-2">
                     <button
@@ -176,9 +176,9 @@ function LoginForm() {
 
           {/* Info Banner */}
           {infoMsg && (
-            <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs flex items-start gap-3">
-              <Mail className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-              <p className="text-indigo-200 leading-relaxed">{infoMsg}</p>
+            <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-800 dark:text-indigo-300 text-xs flex items-start gap-3">
+              <Mail className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <p className="text-indigo-800 dark:text-indigo-200 leading-relaxed">{infoMsg}</p>
             </div>
           )}
 
@@ -189,7 +189,7 @@ function LoginForm() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={googleLoading || loading}
-                className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white font-medium flex items-center justify-center gap-3 transition-colors disabled:opacity-50 text-xs"
+                className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium flex items-center justify-center gap-3 transition-colors disabled:opacity-50 text-xs"
               >
                 {googleLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
@@ -206,9 +206,9 @@ function LoginForm() {
 
               <div className="relative text-center my-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-800" />
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                 </div>
-                <span className="relative px-3 bg-[#050816] text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <span className="relative px-3 bg-white dark:bg-[#050816] text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Or with email
                 </span>
               </div>
@@ -218,7 +218,7 @@ function LoginForm() {
           {/* Accessible HTML Sign-In Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                 Email Address
               </label>
               <input
@@ -232,13 +232,13 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
-                className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full px-4 py-3 min-h-[44px] rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                   Password
                 </label>
                 <button
@@ -247,7 +247,7 @@ function LoginForm() {
                     setForgotEmail(email);
                     setShowForgotModal(true);
                   }}
-                  className="text-xs text-indigo-400 hover:underline font-medium min-h-[44px] flex items-center"
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium min-h-[44px] flex items-center"
                 >
                   Forgot password?
                 </button>
@@ -263,12 +263,12 @@ function LoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full px-4 py-3 min-h-[44px] pr-12 rounded-xl bg-slate-900/90 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full px-4 py-3 min-h-[44px] pr-12 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

@@ -154,25 +154,25 @@ export default function ChatComposer({
   };
 
   return (
-    <div className="fixed bottom-3 left-0 right-0 z-40 px-3 sm:px-4 pointer-events-none">
+    <div className="fixed bottom-3 left-0 right-0 z-40 px-3 sm:px-4 pointer-events-none pb-safe">
       {/* Aligned with 768px Conversation Container */}
       <div className="max-w-[768px] mx-auto pointer-events-auto">
         <div
           onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={(event) => { event.preventDefault(); setIsDragging(false); const file = event.dataTransfer.files[0]; if (file) acceptFile(file); }}
-          className={`bg-[#111827]/95 border rounded-[18px] p-2.5 shadow-2xl backdrop-blur-xl transition-all focus-within:border-indigo-500/50 focus-within:shadow-[0_0_32px_rgba(99,102,241,.14)] ${isDragging ? "border-indigo-400 bg-indigo-950/60" : "border-white/10"}`}
+          className={`bg-white/95 dark:bg-[#111827]/95 border rounded-[18px] p-2.5 shadow-2xl backdrop-blur-xl transition-all focus-within:border-indigo-500 focus-within:shadow-lg ${isDragging ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/60" : "border-slate-200 dark:border-white/10"}`}
         >
           {/* File Attachment Tag */}
           {attachedFile && (
-            <div className="mb-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-between text-xs text-indigo-300">
+            <div className="mb-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300">
               <div className="flex items-center gap-2 truncate">
                 <Paperclip className="w-3.5 h-3.5" />
                 <span className="truncate">{attachedFile.name}</span>
               </div>
               <button
                 onClick={() => setAttachedFile(null)}
-                className="text-slate-400 hover:text-white p-0.5"
+                className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -186,11 +186,11 @@ export default function ChatComposer({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingDoc || disabled}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors shrink-0 mb-0.5"
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors shrink-0 mb-0.5"
               title="Attach document"
             >
               {uploadingDoc ? (
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
               ) : (
                 <Paperclip className="w-4 h-4" />
               )}
@@ -211,18 +211,18 @@ export default function ChatComposer({
               onKeyDown={handleKeyDown}
               rows={1}
               placeholder={placeholder}
-              className="flex-1 bg-transparent border-0 text-white placeholder-slate-500 text-xs sm:text-sm resize-none focus:outline-none focus:ring-0 max-h-[180px] py-1.5"
+              className="flex-1 bg-transparent border-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm resize-none focus:outline-none focus:ring-0 max-h-[180px] py-2"
             />
 
             {/* Voice Mic Button */}
             <div className="relative shrink-0 mb-0.5">
-              <Languages className="pointer-events-none absolute left-2 top-2.5 h-3.5 w-3.5 text-slate-500" />
+              <Languages className="pointer-events-none absolute left-2 top-3 h-3.5 w-3.5 text-slate-400" />
               <select
                 aria-label="Voice language"
                 value={voiceLanguage}
                 onChange={(event) => setVoiceLanguage(event.target.value as VoiceLanguage)}
                 disabled={isListening}
-                className="h-8 w-8 cursor-pointer appearance-none rounded-xl bg-transparent pl-2 text-[0px] text-slate-400 outline-none hover:bg-white/5 disabled:cursor-not-allowed sm:w-[7.2rem] sm:pl-7 sm:text-[11px]"
+                className="h-10 w-9 cursor-pointer appearance-none rounded-xl bg-transparent pl-2 text-[0px] text-slate-600 dark:text-slate-400 outline-none hover:bg-slate-100 dark:hover:bg-white/5 disabled:cursor-not-allowed sm:w-[7.2rem] sm:pl-7 sm:text-[11px]"
                 title={`Voice language: ${voiceLabel}`}
               >
                 <option value="auto">Auto / English</option>
@@ -235,10 +235,10 @@ export default function ChatComposer({
             <button
               type="button"
               onClick={toggleMic}
-              className={`p-2 rounded-xl transition-colors shrink-0 mb-0.5 ${
+              className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition-colors shrink-0 mb-0.5 ${
                 isListening
-                  ? "bg-rose-500/20 text-rose-400 animate-pulse border border-rose-500/30"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
+                  ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 animate-pulse border border-rose-500/30"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
               }`}
               title={`Voice input: ${voiceLabel}`}
             >
@@ -250,7 +250,7 @@ export default function ChatComposer({
               type="button"
               onClick={loading ? onCancel : handleSubmit}
               disabled={loading ? false : !input.trim() || disabled}
-              className="p-2 rounded-xl bg-[#6366F1] hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-30 shrink-0 mb-0.5"
+              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all disabled:opacity-30 shrink-0 mb-0.5"
               title={loading ? "Stop generation" : "Send message"}
             >
               {loading ? <Square className="w-3.5 h-3.5" /> : <Send className="w-4 h-4" />}
@@ -258,8 +258,8 @@ export default function ChatComposer({
           </div>
         </div>
 
-        {/* Keyboard Shortcut Hint */}
-          <div className="text-center text-[10px] text-slate-600 px-2 mt-1.5">DeepRAG can make mistakes. Check important information.</div>
+        {/* Keyboard Hint */}
+        <div className="text-center text-[10px] text-slate-500 dark:text-slate-400 px-2 mt-1.5">DeepRAG can make mistakes. Verify important citations.</div>
       </div>
     </div>
   );

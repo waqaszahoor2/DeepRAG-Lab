@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, Component, ReactNode } from "react";
 import * as THREE from "three";
 import { motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import { Sparkles, Bookmark, ShieldCheck, CheckCircle2 } from "lucide-react";
 
 // Error Boundary Wrapper to prevent Next.js crashes
@@ -31,8 +32,24 @@ class WebGLErrorBoundary extends Component<
   }
 }
 
-function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
+function Canvas3DScene({
+  isDarkTheme,
+  onWebGLFailed,
+}: {
+  isDarkTheme: boolean;
+  onWebGLFailed: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const outerMatRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const innerMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
+
+  // Update material colors on theme change without recreating canvas
+  useEffect(() => {
+    if (outerMatRef.current && innerMatRef.current) {
+      outerMatRef.current.color.setHex(isDarkTheme ? 0x6366f1 : 0x4f46e5);
+      innerMatRef.current.color.setHex(isDarkTheme ? 0xa855f7 : 0x7c3aed);
+    }
+  }, [isDarkTheme]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -73,7 +90,7 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
       // ── Glowing AI Core Mesh ─────────────────────────
       const outerGeo = new THREE.IcosahedronGeometry(1.5, 3);
       const outerMat = new THREE.MeshPhysicalMaterial({
-        color: 0x6366f1,
+        color: isDarkTheme ? 0x6366f1 : 0x4f46e5,
         wireframe: true,
         roughness: 0.1,
         metalness: 0.8,
@@ -81,19 +98,22 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
         opacity: 0.75,
         transparent: true,
       });
+      outerMatRef.current = outerMat;
       const aiCore = new THREE.Mesh(outerGeo, outerMat);
       scene.add(aiCore);
 
       const innerGeo = new THREE.SphereGeometry(0.85, 32, 32);
       const innerMat = new THREE.MeshBasicMaterial({
-        color: 0xa855f7,
+        color: isDarkTheme ? 0xa855f7 : 0x7c3aed,
         wireframe: false,
       });
+      innerMatRef.current = innerMat;
       const innerCore = new THREE.Mesh(innerGeo, innerMat);
       scene.add(innerCore);
 
-      // ── Neural Particle Network ──────────────────────
-      const particleCount = 150;
+      // ── Particle Count Optimization for Mobile ──────
+      const isMobile = window.innerWidth < 768;
+      const particleCount = isMobile ? 65 : 150;
       const particlesGeo = new THREE.BufferGeometry();
       const positions = new Float32Array(particleCount * 3);
       const colors = new Float32Array(particleCount * 3);
@@ -112,7 +132,7 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
       particlesGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
       const particlesMat = new THREE.PointsMaterial({
-        size: 0.05,
+        size: isMobile ? 0.06 : 0.05,
         vertexColors: true,
         transparent: true,
         opacity: 0.65,
@@ -121,7 +141,7 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
       scene.add(particleSystem);
 
       // ── Document Flow Particles ──────────────────────
-      const docCount = 30;
+      const docCount = isMobile ? 15 : 30;
       const docGeo = new THREE.BoxGeometry(0.12, 0.16, 0.02);
       const docMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.7 });
       const docGroup = new THREE.Group();
@@ -140,7 +160,7 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
       scene.add(docGroup);
 
       // ── Lighting ──────────────────────────────────────
-      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+      const ambient = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambient);
 
       const light1 = new THREE.PointLight(0x6366f1, 2, 40);
@@ -155,8 +175,8 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
       let mouseX = 0;
       let mouseY = 0;
       const handleMouseMove = (e: MouseEvent) => {
-        mouseX = (e.clientX / window.innerWidth - 0.5) * 0.4;
-        mouseY = (e.clientY / window.innerHeight - 0.5) * 0.4;
+        mouseX = (e.clientX / window.innerWidth - 0.5) * 0.35;
+        mouseY = (e.clientY / window.innerHeight - 0.5) * 0.35;
       };
       window.addEventListener("mousemove", handleMouseMove);
 
@@ -188,7 +208,6 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
 
         particleSystem.rotation.y = delta * 0.04;
 
-        // Flow document particles toward center
         docPositions.forEach((item) => {
           item.angle += item.speed * 0.01;
           item.mesh.position.x = Math.cos(item.angle) * item.radius;
@@ -212,6 +231,7 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
     } catch {
       onWebGLFailed();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onWebGLFailed]);
 
   return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none opacity-85" />;
@@ -219,22 +239,30 @@ function Canvas3DScene({ onWebGLFailed }: { onWebGLFailed: () => void }) {
 
 export default function Auth3DInterface() {
   const [hasWebGL, setHasWebGL] = useState(true);
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDarkTheme = !mounted || resolvedTheme === "dark";
 
   return (
-    <div className="relative w-full h-full min-h-[340px] lg:min-h-screen flex flex-col justify-between p-6 lg:p-12 overflow-hidden bg-[#050816]">
+    <div className="relative w-full h-full min-h-[300px] lg:min-h-screen flex flex-col justify-between p-6 lg:p-12 overflow-hidden bg-slate-100 dark:bg-[#050816] transition-colors duration-200">
       {/* 3D Scene or 2D CSS Fallback */}
       <WebGLErrorBoundary
         fallback={
           <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center">
-            <div className="w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-indigo-600/30 via-purple-600/20 to-pink-600/20 blur-3xl animate-pulse" />
+            <div className="w-[380px] h-[380px] rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/20 blur-3xl animate-pulse" />
           </div>
         }
       >
         {hasWebGL ? (
-          <Canvas3DScene onWebGLFailed={() => setHasWebGL(false)} />
+          <Canvas3DScene isDarkTheme={isDarkTheme} onWebGLFailed={() => setHasWebGL(false)} />
         ) : (
           <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center">
-            <div className="w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-indigo-600/30 via-purple-600/20 to-pink-600/20 blur-3xl animate-pulse" />
+            <div className="w-[380px] h-[380px] rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/20 blur-3xl animate-pulse" />
           </div>
         )}
       </WebGLErrorBoundary>
@@ -245,9 +273,9 @@ export default function Auth3DInterface() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-600/20 text-indigo-300 text-xs font-semibold border border-indigo-500/30 backdrop-blur-sm"
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 text-xs font-semibold border border-indigo-500/30 backdrop-blur-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           <span>Next-Gen RAG Intelligence</span>
         </motion.div>
 
@@ -255,10 +283,10 @@ export default function Auth3DInterface() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight"
+          className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight"
         >
           Chat with your documents. <br />
-          <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
             Verify every answer.
           </span>
         </motion.h1>
@@ -267,7 +295,7 @@ export default function Auth3DInterface() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md"
+          className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-md"
         >
           Enterprise RAG platform with multi-format ingestion, page-level citations, hybrid BM25 retrieval, and honest confidence scoring.
         </motion.p>
@@ -279,18 +307,18 @@ export default function Auth3DInterface() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="flex flex-wrap items-center gap-2.5 pt-2"
         >
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-semibold text-indigo-300">
-            <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm">
+            <Bookmark className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Page Citations</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-semibold text-purple-300">
-            <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-purple-700 dark:text-purple-300 shadow-sm">
+            <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
             <span>Honest Confidence</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-semibold text-emerald-300">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-emerald-700 dark:text-emerald-300 shadow-sm">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Secure RAG</span>
           </div>
         </motion.div>

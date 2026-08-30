@@ -53,10 +53,10 @@ export default function AIMessage({
           <button
             key={idx}
             type="button"
-            className={`inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 text-[10px] font-mono font-bold rounded transition-all cursor-pointer ${
+            className={`inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 text-[10px] font-mono font-bold rounded transition-all cursor-pointer min-h-[28px] ${
               isHovered
-                ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/50 scale-110 ring-2 ring-indigo-400"
-                : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/50 scale-110 ring-2 ring-indigo-400"
+                : "bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white"
             }`}
             onMouseEnter={() => onHoverCitation?.(citationNum)}
             onMouseLeave={() => onHoverCitation?.(null)}
@@ -98,7 +98,7 @@ export default function AIMessage({
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
               <Bot className="w-4 h-4" />
             </div>
-            <span className="font-bold text-sm text-white tracking-tight">DeepRAG AI</span>
+            <span className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">DeepRAG AI</span>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -112,14 +112,14 @@ export default function AIMessage({
       {!sufficientContext && <InsufficientContextCard />}
 
       {/* Document-Style Content (No Heavy Bubble) */}
-      <div className={`${showIdentity ? "pl-10" : "pl-0 sm:pl-10"} chat-markdown w-full text-slate-300 text-sm sm:text-[15px] leading-7`}>
-        {text ? renderMarkdown(text) : <span className="inline-block h-4 w-10 animate-pulse rounded bg-white/10" />}
+      <div className={`${showIdentity ? "pl-10" : "pl-0 sm:pl-10"} chat-markdown w-full text-slate-800 dark:text-slate-200 text-sm sm:text-[15px] leading-7`}>
+        {text ? renderMarkdown(text) : <span className="inline-block h-4 w-10 animate-pulse rounded bg-slate-300 dark:bg-white/10" />}
       </div>
 
       {/* Action Bar & Timestamp */}
       <div className={`${showIdentity ? "pl-10" : "pl-0 sm:pl-10"} flex items-center justify-between w-full mt-0.5`}>
         <MessageActions text={text} onRegenerate={onRegenerate} onVerify={onVerify} />
-        {timestamp && <span className="text-[10px] text-slate-500 font-mono">{timestamp}</span>}
+        {timestamp && <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{timestamp}</span>}
       </div>
     </article>
   );

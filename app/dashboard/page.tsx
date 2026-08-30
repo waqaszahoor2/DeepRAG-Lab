@@ -46,13 +46,13 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Reduced Header Size */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-800/60">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/60">
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-            Welcome back, <span className="text-indigo-400">{user?.username}</span>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Welcome back, <span className="text-indigo-600 dark:text-indigo-400">{user?.username}</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
             Overview of your documents, indexed vectors, and AI activity
           </p>
         </div>
