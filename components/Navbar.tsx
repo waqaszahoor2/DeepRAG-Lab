@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-import { ThemeToggle } from "./ThemeToggle";
+import { ThemeDropdown } from "./ThemeDropdown";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -43,7 +43,7 @@ export default function Navbar() {
 
   return (
     <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md sticky top-0 z-50 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="site-container">
         <div className="flex items-center justify-between h-14">
           {/* Logo & Brand */}
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -77,9 +77,9 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Auth Actions & Theme Toggle */}
+          {/* Auth Actions & Theme Dropdown */}
           <div className="hidden sm:flex items-center gap-3">
-            <ThemeToggle />
+            <ThemeDropdown />
 
             {isAuthenticated && user ? (
               <div className="flex items-center gap-2.5">
@@ -121,7 +121,7 @@ export default function Navbar() {
 
           {/* Mobile Actions & Menu Toggle */}
           <div className="flex lg:hidden items-center gap-2">
-            <ThemeToggle />
+            <ThemeDropdown />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"

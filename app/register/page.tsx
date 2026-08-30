@@ -85,14 +85,14 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 select-none">
-      <div className="w-full max-w-md p-8 rounded-3xl glass-panel border border-slate-800 shadow-2xl">
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="p-3 rounded-2xl bg-indigo-600/20 text-indigo-400 mb-3">
-            <Cpu className="w-8 h-8" />
+    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center p-4 site-container">
+      <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl glass-panel border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+        <div className="flex flex-col items-center text-center mb-4">
+          <div className="p-3 rounded-2xl bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 mb-2">
+            <Cpu className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Create Account</h1>
-          <p className="text-sm text-slate-400 mt-1">Register using your official email or Gmail</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Create Account</h1>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Register using your official email or Gmail</p>
           
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300">
             {hasSupabase ? (

@@ -45,9 +45,9 @@ export default function SettingsPage() {
   const isGuest = !user;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6 pb-4 border-b border-slate-800/80">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+    <div className="site-container py-8">
+      <div className="mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/80">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
           <Settings className="w-6 h-6 text-indigo-400" />
           Settings & Configuration
         </h1>

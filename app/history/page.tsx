@@ -33,13 +33,13 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="site-container py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-          <History className="w-7 h-7 text-indigo-400" />
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+          <History className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
           Chat History
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
           Review your previous document queries and AI responses
         </p>
       </div>

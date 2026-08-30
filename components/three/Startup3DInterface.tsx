@@ -202,14 +202,14 @@ export default function Startup3DInterface() {
       )}
 
       {/* Hero Content Overlay */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 pb-12">
+      <div className="relative z-10 site-container text-center pt-8 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-panel text-indigo-300 text-xs font-medium mb-6 border border-indigo-500/20"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 text-xs font-medium mb-6 border border-indigo-500/30"
         >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           <span>Enterprise Production AI RAG Platform</span>
         </motion.div>
 
@@ -217,10 +217,10 @@ export default function Startup3DInterface() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-tight mb-4"
+          className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight mb-4"
         >
           Unlock Deep Knowledge from <br className="hidden sm:block" />
-          <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
             Your Documents
           </span>
         </motion.h1>
@@ -229,12 +229,12 @@ export default function Startup3DInterface() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
+          className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
         >
-          Upload PDFs, DOCX, CSVs, TXT, or Markdown. Ask complex questions and receive accurate answers with precise page-level citations, source verification, and confidence scoring powered by Gemini & OpenRouter.
+          Upload PDFs, DOCX, CSVs, TXT, or Markdown. Ask complex questions and receive accurate answers with precise page-level citations, source verification, and confidence scoring powered by Gemini AI.
         </motion.p>
 
-        {/* Decreased Button Sizes for Sleek Design */}
+        {/* Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -243,23 +243,23 @@ export default function Startup3DInterface() {
         >
           <Link
             href="/chat?demo=true"
-            className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
+            className="px-5 py-3 min-h-[44px] rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
           >
             <Sparkles className="w-4 h-4 text-indigo-200" />
             <span>Try Public Demo</span>
           </Link>
           <Link
             href="/upload"
-            className="px-5 py-2.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 font-semibold text-xs sm:text-sm border border-indigo-500/30 flex items-center justify-center gap-2 transition-all"
+            className="px-5 py-3 min-h-[44px] rounded-xl bg-indigo-600/10 dark:bg-indigo-600/20 hover:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 font-semibold text-xs sm:text-sm border border-indigo-500/30 flex items-center justify-center gap-2 transition-all"
           >
             <span>Launch DeepRAG</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/login"
-            className="px-5 py-2.5 rounded-lg glass-panel hover:bg-slate-800/80 text-slate-200 font-medium text-xs sm:text-sm border border-slate-700 transition-all"
+            className="px-5 py-3 min-h-[44px] rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-medium text-xs sm:text-sm border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center"
           >
-            Sign In
+            <span>Sign In</span>
           </Link>
         </motion.div>
 
