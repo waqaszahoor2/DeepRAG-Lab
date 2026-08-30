@@ -22,13 +22,22 @@ export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
+  const authNavItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Upload Doc", href: "/upload", icon: FileText },
     { name: "AI Chat", href: "/chat", icon: MessageSquare },
     { name: "History", href: "/history", icon: History },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
+
+  const guestNavItems = [
+    { name: "Home", href: "/", icon: Cpu },
+    { name: "Features", href: "/#features", icon: Sparkles },
+    { name: "Public Demo", href: "/chat?demo=true", icon: MessageSquare },
+    { name: "Create Account", href: "/register", icon: FileText },
+  ];
+
+  const activeNavItems = isAuthenticated ? authNavItems : guestNavItems;
 
   return (
     <nav className="border-b border-slate-800 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
@@ -44,9 +53,9 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Navigation Feature Links — Open to all users to check and explore */}
+          {/* Desktop Navigation Links */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs font-medium">
-            {navItems.map((item) => {
+            {activeNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (
@@ -135,7 +144,7 @@ export default function Navbar() {
           )}
 
           <div className="grid grid-cols-2 gap-2 pt-1 pb-2">
-            {navItems.map((item) => {
+            {activeNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (
