@@ -14,6 +14,9 @@ export interface DocumentItem {
   file_size_bytes: number;
   chunk_count: number;
   status: string;
+  stage?: string;
+  progress?: number;
+  error_message?: string | null;
   created_at: string;
 }
 
@@ -26,12 +29,23 @@ export interface SourceCitation {
   relevance_score: number;
 }
 
+export interface ChunkItem {
+  chunk_id: string;
+  page_number?: number;
+  text: string;
+  character_count: number;
+}
+
 export interface ChatResponse {
   answer: string;
   mode: 'document_qa' | 'general_ai';
+  route?: string;
+  selected_document_ids?: string[];
   confidence_score?: number;
   sources: SourceCitation[];
   query_id: string;
+  provider?: string;
+  sufficient_context?: boolean;
 }
 
 export interface ChatHistoryItem {
@@ -43,16 +57,79 @@ export interface ChatHistoryItem {
   created_at: string;
 }
 
+export interface ConversationItem {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_message?: string | null;
+}
+
+export interface ConversationMessageItem {
+  id: string;
+  conversation_id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  mode?: string | null;
+  confidence_score?: number | null;
+  sources?: SourceCitation[] | null;
+  provider?: string | null;
+  sufficient_context?: boolean;
+  created_at: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: ConversationMessageItem[];
+}
+
 // ─── Configuration ───────────────────────────────────────────
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+async function readError(response: Response, fallback: string): Promise<ApiError> {
+  let message = fallback;
+  try {
+    const payload = await response.json();
+    if (typeof payload?.error === 'string') message = payload.error;
+    else if (typeof payload?.detail === 'string') message = payload.detail;
+  } catch {
+    // Keep the safe fallback for empty or non-JSON responses.
+  }
+  return new ApiError(message, response.status);
+}
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function getDemoHeaders(): HeadersInit {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
+  let sessionId = localStorage.getItem('deeprag_demo_session');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('deeprag_demo_session', sessionId);
+  }
+  return {
+    'Content-Type': 'application/json',
+    'X-Demo-Session-ID': sessionId,
   };
 }
 
@@ -65,8 +142,7 @@ export async function registerUser(email: string, username: string, password: st
     body: JSON.stringify({ email, username, password }),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Registration failed');
+    throw await readError(res, 'Registration failed');
   }
   return res.json();
 }
@@ -78,8 +154,7 @@ export async function loginUser(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Login failed');
+    throw await readError(res, 'Login failed');
   }
   return res.json();
 }
@@ -88,7 +163,9 @@ export async function fetchUserProfile(): Promise<User> {
   const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error('Unauthorized');
+  if (!res.ok) {
+    throw await readError(res, 'Unable to restore your session.');
+  }
   return res.json();
 }
 
@@ -108,22 +185,33 @@ export async function uploadDocument(file: File): Promise<DocumentItem> {
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Upload failed');
+    throw await readError(res, 'Upload failed');
   }
   return res.json();
 }
 
 export async function fetchDocuments(): Promise<{ documents: DocumentItem[]; total: number }> {
-  try {
-    const res = await fetch(`${API_BASE}/api/v1/documents`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch documents');
-    return await res.json();
-  } catch {
-    return { documents: [], total: 0 };
-  }
+  const res = await fetch(`${API_BASE}/api/v1/documents`, { headers: getAuthHeaders() });
+  if (!res.ok) throw await readError(res, 'Unable to load documents.');
+  return await res.json();
+}
+
+export async function fetchDocument(documentId: string): Promise<DocumentItem> {
+  const res = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: getAuthHeaders() });
+  if (!res.ok) throw await readError(res, 'Unable to check document status.');
+  return await res.json();
+}
+
+export async function retryDocument(documentId: string): Promise<DocumentItem> {
+  const res = await fetch(`${API_BASE}/api/v1/documents/${documentId}/retry`, { method: 'POST', headers: getAuthHeaders() });
+  if (!res.ok) throw await readError(res, 'Unable to retry document processing.');
+  return await res.json();
+}
+
+export async function cancelDocument(documentId: string): Promise<DocumentItem> {
+  const res = await fetch(`${API_BASE}/api/v1/documents/${documentId}/cancel`, { method: 'POST', headers: getAuthHeaders() });
+  if (!res.ok) throw await readError(res, 'Unable to cancel document processing.');
+  return await res.json();
 }
 
 export async function deleteDocument(documentId: string) {
@@ -135,164 +223,168 @@ export async function deleteDocument(documentId: string) {
   return res.json();
 }
 
-// ─── LLM Direct Call (Real AI Answers) ──────────────────────
-//
-// Default primary LLM Provider: Google Gemini API
-// Fallback LLM Provider: OpenRouter API
-
-async function callGeminiDirectLLM(question: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: question }],
-            },
-          ],
-        }),
-      }
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (content && content.trim().length > 0) {
-        return content.trim();
-      }
-    }
-  } catch {
-    // Network or parsing error — return null to try fallback
-  }
-  return null;
+export async function fetchDocumentChunks(documentId: string): Promise<{ chunks: ChunkItem[]; total_chunks: number }> {
+  const res = await fetch(`${API_BASE}/api/v1/documents/${documentId}/chunks`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch document chunks');
+  return res.json();
 }
 
-async function callOpenRouterLLM(question: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://deeprag-lab.vercel.app",
-        "X-Title": "DeepRAG Lab",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.0-flash-lite-001",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful, expert AI assistant. Answer any user question directly, comprehensively, and accurately. Always respond in the exact same language the user used. If the user writes in English, respond in English. If the user writes in Roman Urdu, respond in Roman Urdu. If the user writes in Hindi, respond in Hindi. Provide detailed, real answers. Never refuse to answer. Never return placeholder text, status messages, or system disclaimers.",
-          },
-          {
-            role: "user",
-            content: question,
-          },
-        ],
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (content && content.trim().length > 0) {
-        return content.trim();
-      }
-    }
-  } catch {
-    // Network or parsing error — return null
-  }
-  return null;
-}
-
-async function generateDirectLLMAnswer(question: string): Promise<string> {
-  // Resolve keys: env var > localStorage
-  const activeGeminiKey =
-    GEMINI_API_KEY ||
-    (typeof window !== 'undefined' ? localStorage.getItem('gemini_key') : null) ||
-    '';
-
-  const activeOpenRouterKey =
-    OPENROUTER_API_KEY ||
-    (typeof window !== 'undefined' ? localStorage.getItem('openrouter_key') : null) ||
-    '';
-
-  // Strategy 1 (DEFAULT PRIMARY): Google Gemini REST API Direct LLM Call
-  if (activeGeminiKey) {
-    const answer = await callGeminiDirectLLM(question, activeGeminiKey);
-    if (answer) return answer;
-  }
-
-  // Strategy 2 (SECONDARY FALLBACK): OpenRouter API Call
-  if (activeOpenRouterKey) {
-    const answer = await callOpenRouterLLM(question, activeOpenRouterKey);
-    if (answer) return answer;
-  }
-
-  // Both providers failed — throw real error (NO hardcoded fallback text)
-  throw new Error("LLM_PROVIDERS_UNAVAILABLE");
-}
-
-// ─── Chat API (Primary flow) ────────────────────────────────
+// ─── Chat API (Standard & Streaming) ───────────────────────
 
 export async function sendChatMessage(
   question: string,
   mode: 'auto' | 'document_qa' | 'general_ai' = 'auto',
-  document_ids?: string[]
+  document_ids?: string[],
+  is_demo: boolean = false,
+  conversation_id?: string
 ): Promise<ChatResponse> {
-
-  // ── Step 1: Try the FastAPI backend first ──
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
-    const res = await fetch(`${API_BASE}/api/v1/chat`, {
+  const headers: HeadersInit = is_demo ? getDemoHeaders() : getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/v1/chat`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ question, mode, document_ids }),
-      signal: controller.signal,
+      headers,
+      body: JSON.stringify({ question, mode, document_ids, is_demo, conversation_id }),
     });
+  if (!res.ok) throw await readError(res, 'Unable to send your message.');
+  const data = await res.json();
+  if (!data.answer?.trim()) throw new ApiError('The assistant returned an empty response.', 502);
+  return data as ChatResponse;
+}
 
-    clearTimeout(timeoutId);
+export async function sendChatMessageStream(
+  question: string,
+  onToken: (token: string) => void,
+  onMeta: (meta: { provider?: string; mode?: string; route?: string; confidence?: number; sources?: SourceCitation[]; selected_document_ids?: string[]; sufficient_context?: boolean }) => void,
+  mode: 'auto' | 'document_qa' | 'general_ai' = 'auto',
+  document_ids?: string[],
+  is_demo: boolean = false,
+  signal?: AbortSignal,
+  conversation_id?: string
+): Promise<void> {
+  const headers: HeadersInit = is_demo
+    ? getDemoHeaders()
+    : getAuthHeaders();
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.answer && data.answer.trim().length > 0) {
-        return data as ChatResponse;
-      }
+  const response = await fetch(`${API_BASE}/api/v1/chat/stream`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ question, mode, document_ids, is_demo, conversation_id }),
+    signal,
+  });
+
+  if (!response.ok || !response.body) {
+    // Fallback to standard request if SSE stream fails
+    const fallbackRes = await sendChatMessage(question, mode, document_ids, is_demo, conversation_id);
+    onToken(fallbackRes.answer);
+    onMeta({
+      provider: fallbackRes.provider,
+      mode: fallbackRes.mode,
+      route: fallbackRes.route,
+      confidence: fallbackRes.confidence_score,
+      sources: fallbackRes.sources,
+      selected_document_ids: fallbackRes.selected_document_ids,
+      sufficient_context: fallbackRes.sufficient_context,
+    });
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() || "";
+
+    for (const block of lines) {
+      if (!block.trim()) continue;
+      const eventLine = block.match(/^event:\s*(.+)$/m);
+      const dataLine = block.match(/^data:\s*(.+)$/m);
+
+      if (!eventLine || !dataLine) continue;
+
+      const event = eventLine[1].trim();
+      const rawData = dataLine[1].trim();
+
+      let payload: any;
+      try { payload = JSON.parse(rawData); } catch { continue; }
+      if (event === "token" && payload.text) onToken(payload.text);
+      else if (event === "meta") onMeta(payload);
+      else if (event === "error") throw new Error(payload.error || "The assistant is temporarily unavailable.");
     }
-  } catch {
-    // Backend unreachable — fall through to direct Gemini/LLM
   }
+}
 
-  // ── Step 2: Direct Google Gemini / LLM call ──
-  try {
-    const resolvedMode: 'document_qa' | 'general_ai' =
-      mode === 'document_qa' ? 'document_qa' : 'general_ai';
+// ─── Conversations API (Thread Persistence) ──────────────────
 
-    const llmAnswer = await generateDirectLLMAnswer(question);
+export async function fetchConversations(): Promise<ConversationItem[]> {
+  const res = await fetch(`${API_BASE}/api/v1/conversations`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw await readError(res, 'Unable to load conversations.');
+  return await res.json();
+}
 
-    return {
-      answer: llmAnswer,
-      mode: resolvedMode,
-      confidence_score: undefined,
-      sources: [],
-      query_id: `query_${Date.now()}`,
-    };
-  } catch {
-    // ── Step 3: Failure notification ──
-    return {
-      answer: "I'm unable to generate a response right now. Please check that the NEXT_PUBLIC_GEMINI_API_KEY environment variable is configured in your Vercel project settings, then redeploy.",
-      mode: 'general_ai',
-      confidence_score: undefined,
-      sources: [],
-      query_id: `error_${Date.now()}`,
-    };
+export async function createConversation(title: string = 'New Conversation'): Promise<ConversationItem> {
+  const res = await fetch(`${API_BASE}/api/v1/conversations`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw await readError(res, 'Unable to create conversation.');
+  return await res.json();
+}
+
+export async function fetchConversation(conversationId: string): Promise<ConversationDetail> {
+  const res = await fetch(`${API_BASE}/api/v1/conversations/${conversationId}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw await readError(res, 'Unable to fetch conversation.');
+  return await res.json();
+}
+
+export async function updateConversation(conversationId: string, title: string): Promise<ConversationItem> {
+  const res = await fetch(`${API_BASE}/api/v1/conversations/${conversationId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw await readError(res, 'Unable to update conversation title.');
+  return await res.json();
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/conversations/${conversationId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw await readError(res, 'Unable to delete conversation.');
+}
+
+export async function addConversationMessage(
+  conversationId: string,
+  message: {
+    sender: string;
+    text: string;
+    mode?: string;
+    confidence_score?: number;
+    sources?: SourceCitation[];
+    provider?: string;
+    sufficient_context?: boolean;
   }
+): Promise<ConversationMessageItem> {
+  const res = await fetch(`${API_BASE}/api/v1/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(message),
+  });
+  if (!res.ok) throw await readError(res, 'Unable to save message to conversation.');
+  return await res.json();
 }
 
 // ─── Chat History API ────────────────────────────────────────

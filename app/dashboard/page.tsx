@@ -100,13 +100,28 @@ export default function DashboardPage() {
 
         <div className="glass-card p-4 rounded-xl">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Primary Model</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">LLM Provider Chain</span>
             <div className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-400">
               <Cpu className="w-4 h-4" />
             </div>
           </div>
           <p className="text-base font-bold text-white">Gemini 2.5 Flash</p>
-          <p className="text-[10px] text-emerald-400 mt-1">OpenRouter Failover Ready</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Gemini
+            </span>
+            <span className="text-[10px] text-slate-500">→</span>
+            <span className="flex items-center gap-1 text-[10px] text-blue-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              Z.AI
+            </span>
+            <span className="text-[10px] text-slate-500">→</span>
+            <span className="flex items-center gap-1 text-[10px] text-purple-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+              OpenRouter
+            </span>
+          </div>
         </div>
 
         <div className="glass-card p-4 rounded-xl">

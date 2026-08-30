@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { motion } from "framer-motion";
 import {
@@ -19,25 +19,42 @@ import Link from "next/link";
 
 export default function Startup3DInterface() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [hasWebGL, setHasWebGL] = useState(true);
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) {
+      setHasWebGL(false);
+      return;
+    }
 
-    // Canvas setup
     const container = containerRef.current;
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    );
-    camera.position.z = 6;
+    let renderer: THREE.WebGLRenderer | null = null;
+    let animationFrameId: number;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
+    try {
+      // Check if WebGL context can be created
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+      if (!gl) {
+        setHasWebGL(false);
+        return;
+      }
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+      );
+      camera.position.z = 6;
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
 
     // AI Core Sphere
     const sphereGeometry = new THREE.IcosahedronGeometry(1.8, 4);
@@ -125,7 +142,7 @@ export default function Startup3DInterface() {
 
     // Resize Handler
     const handleResize = () => {
-      if (!container) return;
+      if (!container || !renderer) return;
       camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
@@ -133,7 +150,6 @@ export default function Startup3DInterface() {
     window.addEventListener("resize", handleResize);
 
     // Animation Loop
-    let animationFrameId: number;
     let clock = new THREE.Clock();
 
     const animate = () => {
@@ -151,27 +167,39 @@ export default function Startup3DInterface() {
       // Rotate Particle System
       particleSystem.rotation.y = elapsedTime * 0.05;
 
-      renderer.render(scene, camera);
+      if (renderer) {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(animationFrameId);
-      if (container && renderer.domElement) {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (container && renderer && renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
     };
+    } catch (err) {
+      console.warn("WebGL not supported or context creation failed; falling back to 2D CSS background.", err);
+      setHasWebGL(false);
+    }
   }, []);
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center overflow-hidden">
-      {/* 3D Canvas Background */}
-      <div
-        ref={containerRef}
-        className="absolute inset-0 z-0 pointer-events-none opacity-80"
-      />
+      {/* Background: 3D Canvas or 2D CSS Orb Fallback */}
+      {hasWebGL ? (
+        <div
+          ref={containerRef}
+          className="absolute inset-0 z-0 pointer-events-none opacity-80"
+        />
+      ) : (
+        <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center">
+          <div className="w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-indigo-600/30 via-purple-600/20 to-pink-600/20 blur-3xl animate-pulse" />
+        </div>
+      )}
 
       {/* Hero Content Overlay */}
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 pb-12">
@@ -211,11 +239,18 @@ export default function Startup3DInterface() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.45 }}
-          className="flex flex-row items-center justify-center gap-3 mb-10"
+          className="flex flex-wrap items-center justify-center gap-3 mb-10"
         >
           <Link
+            href="/chat?demo=true"
+            className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
+          >
+            <Sparkles className="w-4 h-4 text-indigo-200" />
+            <span>Try Public Demo</span>
+          </Link>
+          <Link
             href="/upload"
-            className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
+            className="px-5 py-2.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 font-semibold text-xs sm:text-sm border border-indigo-500/30 flex items-center justify-center gap-2 transition-all"
           >
             <span>Launch DeepRAG</span>
             <ArrowRight className="w-4 h-4" />
@@ -224,7 +259,7 @@ export default function Startup3DInterface() {
             href="/login"
             className="px-5 py-2.5 rounded-lg glass-panel hover:bg-slate-800/80 text-slate-200 font-medium text-xs sm:text-sm border border-slate-700 transition-all"
           >
-            Sign In to Dashboard
+            Sign In
           </Link>
         </motion.div>
 

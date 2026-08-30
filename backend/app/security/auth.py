@@ -85,10 +85,13 @@ def decode_token(token: str) -> dict:
 
 # ── FastAPI Dependencies ─────────────────────────────────────────────────
 
-from fastapi import Depends, Header
+from fastapi import Header, Request
 
 
-async def get_current_user_id(authorization: str = Header(..., description="Bearer <token>")) -> str:
+async def get_current_user_id(
+    request: Request,
+    authorization: str | None = Header(None, description="Bearer <token>"),
+) -> str:
     """Extract and validate the user ID from the Authorization header.
 
     Usage in endpoints::
@@ -97,9 +100,10 @@ async def get_current_user_id(authorization: str = Header(..., description="Bear
         async def me(user_id: str = Depends(get_current_user_id)):
             ...
     """
-    if not authorization.startswith("Bearer "):
+    header_val = authorization if isinstance(authorization, str) else request.headers.get("authorization")
+    if not header_val or not header_val.startswith("Bearer "):
         raise AuthenticationError("Authorization header must start with 'Bearer '.")
-    token = authorization.removeprefix("Bearer ").strip()
+    token = header_val.removeprefix("Bearer ").strip()
     payload = decode_token(token)
     if payload.get("type") != "access":
         raise AuthenticationError("Invalid token type.")

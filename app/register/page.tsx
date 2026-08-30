@@ -6,9 +6,11 @@ import Link from "next/link";
 import { Cpu, ArrowRight, AlertCircle, Loader2, CheckCircle2, ShieldCheck, Database, Check, X, Eye, EyeOff, Mail } from "lucide-react";
 import { signUp, signInWithGoogle, validateStrongPassword } from "@/lib/authService";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -61,6 +63,7 @@ export default function RegisterPage() {
           `Account created successfully for ${email}! A confirmation link has been sent to your Gmail inbox. Please open your email and verify your address before signing in.`
         );
       } else {
+        await refreshUser();
         router.push("/dashboard");
       }
     } catch (err: any) {
@@ -192,12 +195,17 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="reg-email" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
               Email Address
             </label>
             <input
+              id="reg-email"
+              name="email"
               type="email"
               required
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email address"
@@ -207,12 +215,17 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="reg-username" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
               Username
             </label>
             <input
+              id="reg-username"
+              name="username"
               type="text"
               required
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Choose a username"
@@ -221,21 +234,20 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="reg-password" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
               Password
             </label>
             <div className="relative">
               <input
+                id="reg-password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onCopy={(e) => e.preventDefault()}
-                onCut={(e) => e.preventDefault()}
-                onContextMenu={(e) => e.preventDefault()}
-                onDragStart={(e) => e.preventDefault()}
                 placeholder="Enter a strong password"
-                className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors select-none"
+                className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <button
                 type="button"

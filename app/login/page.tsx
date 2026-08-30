@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Cpu, ArrowRight, AlertCircle, Loader2, ShieldCheck, Database, Eye, EyeOff, Mail, RefreshCw } from "lucide-react";
+import { Cpu, ArrowRight, AlertCircle, Loader2, ShieldCheck, Database, Eye, EyeOff, Mail, RefreshCw, KeyRound } from "lucide-react";
 import { signIn, signInWithGoogle, resendVerificationEmail } from "@/lib/authService";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect") || "/dashboard";
+
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [hasSupabase, setHasSupabase] = useState(false);
@@ -22,20 +30,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     setHasSupabase(isSupabaseConfigured());
-
-    // Prevent screenshot / print screen keyboard shortcuts
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === "PrintScreen" ||
-        ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "s" || e.key === "S"))
-      ) {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,7 +41,8 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password);
-      router.push("/dashboard");
+      await refreshUser();
+      router.push(redirectUrl);
     } catch (err: any) {
       const msg = err.message || "Sign in failed. Please check your credentials.";
       setError(msg);
@@ -73,6 +68,32 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    setError(null);
+    setInfoMsg(null);
+    try {
+      if (hasSupabase) {
+        const { getSupabase } = await import("@/lib/supabaseClient");
+        const supabase = getSupabase();
+        if (supabase) {
+          const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+            redirectTo: `${window.location.origin}/login?reset=true`,
+          });
+          if (error) throw error;
+        }
+      }
+      setInfoMsg(`Password reset instructions have been sent to ${forgotEmail}. Please check your inbox.`);
+      setShowForgotModal(false);
+    } catch (err: any) {
+      setError(err.message || "Unable to send password reset request.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setGoogleLoading(true);
@@ -85,7 +106,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 select-none">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <div className="w-full max-w-md p-8 rounded-3xl glass-panel border border-slate-800 shadow-2xl">
         <div className="flex flex-col items-center text-center mb-6">
           <div className="p-3 rounded-2xl bg-indigo-600/20 text-indigo-400 mb-3">
@@ -194,12 +215,17 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
               Email Address
             </label>
             <input
+              id="email"
+              name="email"
               type="email"
               required
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email address"
@@ -208,21 +234,32 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setShowForgotModal(true);
+                }}
+                className="text-xs text-indigo-400 hover:underline font-medium"
+              >
+                Forgot password?
+              </button>
+            </div>
             <div className="relative">
               <input
+                id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onCopy={(e) => e.preventDefault()}
-                onCut={(e) => e.preventDefault()}
-                onContextMenu={(e) => e.preventDefault()}
-                onDragStart={(e) => e.preventDefault()}
                 placeholder="Enter your password"
-                className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors select-none"
+                className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-900/80 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <button
                 type="button"
@@ -252,12 +289,78 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-slate-400 mt-8">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/register" className="text-indigo-400 font-medium hover:underline">
             Create account
           </Link>
         </p>
+        <Link href="/chat?demo=true" className="mt-4 flex items-center justify-center text-sm font-medium text-indigo-400 hover:text-indigo-300">
+          Try the public demo without signing in
+        </Link>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm p-6 rounded-2xl glass-panel border border-slate-800 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-indigo-600/20 text-indigo-400">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">Reset Password</h2>
+                <p className="text-xs text-slate-400">Receive a password reset link via email</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label htmlFor="forgot-email" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  Email Address
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  required
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="Enter your registered email"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(false)}
+                  className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5"
+                >
+                  {forgotLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>Send Reset Link</span>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

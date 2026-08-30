@@ -1,13 +1,14 @@
 """
 DeepRAG Lab — OpenRouter LLM Provider.
 
-Fallback AI provider using the OpenRouter API (OpenAI-compatible).
-Activated when Gemini is unavailable or fails.
+Tertiary fallback AI provider using the OpenRouter API (OpenAI-compatible).
+Activated when both Gemini and Z.AI are unavailable or fail.
 """
 
 from __future__ import annotations
 
 import asyncio
+from typing import AsyncIterator
 
 from openai import AsyncOpenAI
 
@@ -88,6 +89,33 @@ class OpenRouterProvider(BaseLLMProvider):
 
         raise LLMProviderError(f"OpenRouter failed after {settings.LLM_MAX_RETRIES} attempts: {last_error}")
 
+    async def generate_stream(self, prompt: str, system_instruction: str = "") -> AsyncIterator[str]:
+        """Stream tokens from OpenRouter."""
+        settings = get_settings()
+        client = _get_client()
+
+        messages = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            stream = await client.chat.completions.create(
+                model=settings.OPENROUTER_MODEL,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=4096,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+
+        except Exception as exc:
+            logger.error("OpenRouter streaming error: %s", exc)
+            raise LLMProviderError(f"OpenRouter streaming failed: {exc}") from exc
+
     async def is_available(self) -> bool:
         settings = get_settings()
-        return bool(settings.OPENROUTER_API_KEY)
+        return settings.is_configured_secret(settings.OPENROUTER_API_KEY)

@@ -63,7 +63,15 @@ async def get_db_session() -> AsyncSession:  # type: ignore[misc]
 
 async def init_db() -> None:
     """Create all tables.  Called once during application startup."""
+    from pathlib import Path
     from app.db.models import Base  # noqa: E402 — avoid circular import
+
+    settings = get_settings()
+    if "sqlite" in settings.DATABASE_URL:
+        db_path_str = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+        db_path = Path(db_path_str)
+        if db_path.parent:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
 
     engine = _get_engine()
     async with engine.begin() as conn:

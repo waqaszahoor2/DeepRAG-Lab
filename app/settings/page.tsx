@@ -6,24 +6,31 @@ import { getCurrentUser } from "@/lib/authService";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email: string; username: string } | null>(null);
+  const [health, setHealth] = useState<{ status: string; checks: any } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadUser() {
+    async function loadData() {
       try {
         const u = await getCurrentUser();
         setUser(u);
       } catch (err) {
-        setUser({
-          id: "guest_user",
-          email: "guest@deeprag.lab",
-          username: "Guest Explorer",
-        });
+        setUser(null);
+      }
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${apiBase}/api/v1/health/ready`);
+        if (res.ok) {
+          const data = await res.json();
+          setHealth(data);
+        }
+      } catch {
+        setHealth({ status: 'offline', checks: {} });
       } finally {
         setLoading(false);
       }
     }
-    loadUser();
+    loadData();
   }, []);
 
   if (loading) {
@@ -33,6 +40,8 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const isGuest = !user;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -53,24 +62,33 @@ export default function SettingsPage() {
             <UserIcon className="w-4 h-4 text-indigo-400" />
             User Account Profile
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Username</span>
-              <p className="font-semibold text-slate-200 mt-0.5">{user?.username || "Developer"}</p>
+          {isGuest ? (
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+              <p className="font-semibold text-amber-200">Guest Demo Mode</p>
+              <p className="mt-1 text-slate-300">
+                You are currently browsing as a Guest. Create an account or sign in to save private documents and conversations.
+              </p>
             </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Email Address</span>
-              <p className="font-semibold text-slate-200 mt-0.5">{user?.email || "user@deeprag.lab"}</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Username</span>
+                <p className="font-semibold text-slate-200 mt-0.5">{user.username}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Email Address</span>
+                <p className="font-semibold text-slate-200 mt-0.5">{user.email}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Account ID</span>
+                <p className="font-mono text-[11px] text-slate-400 mt-0.5">{user.id}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Account Status</span>
+                <p className="text-[11px] font-semibold text-emerald-400 mt-0.5">Active Member</p>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Account ID</span>
-              <p className="font-mono text-[11px] text-slate-400 mt-0.5">{user?.id || "session_active"}</p>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Account Status</span>
-              <p className="text-[11px] font-semibold text-emerald-400 mt-0.5">Active</p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* LLM Provider Config Card */}
@@ -85,14 +103,18 @@ export default function SettingsPage() {
                 <p className="font-semibold text-slate-200">Primary Provider</p>
                 <p className="text-[11px] text-slate-400">Google Gemini API (gemini-2.5-flash)</p>
               </div>
-              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold">Active</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${health?.checks?.gemini_key === 'configured' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                {health?.checks?.gemini_key === 'configured' ? 'Active' : 'Unconfigured'}
+              </span>
             </div>
             <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
               <div>
-                <p className="font-semibold text-slate-200">Fallback Provider</p>
+                <p className="font-semibold text-slate-200">Secondary Fallback</p>
                 <p className="text-[11px] text-slate-400">OpenRouter API (google/gemini-2.5-flash)</p>
               </div>
-              <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 text-[10px] font-semibold">Standby</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${health?.checks?.openrouter_key === 'configured' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-400'}`}>
+                {health?.checks?.openrouter_key === 'configured' ? 'Standby' : 'Unconfigured'}
+              </span>
             </div>
           </div>
         </div>
@@ -105,10 +127,12 @@ export default function SettingsPage() {
           </h2>
           <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
             <div>
-              <p className="font-semibold text-slate-200">Development Store</p>
-              <p className="text-[11px] text-slate-400">ChromaDB (Local persistent vector database)</p>
+              <p className="font-semibold text-slate-200">Vector Engine</p>
+              <p className="text-[11px] text-slate-400">ChromaDB (Local) / Qdrant (Production)</p>
             </div>
-            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold">Connected</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${health?.checks?.vector_db?.status === 'connected' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+              {health?.checks?.vector_db?.status === 'connected' ? 'Connected' : 'Unavailable'}
+            </span>
           </div>
         </div>
       </div>

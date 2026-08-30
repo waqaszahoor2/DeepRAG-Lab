@@ -111,7 +111,8 @@ Backend will run at `http://127.0.0.1:8000`. OpenAPI docs available at `http://1
 ### 2. Frontend Setup
 
 ```bash
-cd frontend
+# In project root:
+cp .env.local.example .env.local
 
 # Install dependencies
 npm install

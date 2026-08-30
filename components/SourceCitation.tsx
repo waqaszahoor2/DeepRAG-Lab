@@ -36,7 +36,7 @@ export default function SourceCitation({ sources }: SourceCitationProps) {
             </div>
 
             <p className="text-slate-400 text-[11px] line-clamp-2 italic mb-1.5">
-              "{src.text_snippet}"
+              &ldquo;{src.text_snippet}&rdquo;
             </p>
 
             <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-800/60">

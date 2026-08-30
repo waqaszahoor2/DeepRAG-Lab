@@ -2,12 +2,13 @@
 DeepRAG Lab — Gemini LLM Provider.
 
 Primary AI provider using Google's Gemini API.
-Features: singleton client, retry with backoff, timeout handling.
+Features: singleton client, retry with backoff, timeout handling, streaming.
 """
 
 from __future__ import annotations
 
 import asyncio
+from typing import AsyncIterator
 
 from google import genai
 from google.genai import types
@@ -86,6 +87,36 @@ class GeminiProvider(BaseLLMProvider):
 
         raise LLMProviderError(f"Gemini failed after {settings.LLM_MAX_RETRIES} attempts: {last_error}")
 
+    async def generate_stream(self, prompt: str, system_instruction: str = "") -> AsyncIterator[str]:
+        """Stream tokens from Gemini using the streaming API."""
+        settings = get_settings()
+        client = _get_client()
+
+        config = types.GenerateContentConfig(
+            temperature=0.7,
+            max_output_tokens=4096,
+        )
+        if system_instruction:
+            config.system_instruction = system_instruction
+
+        try:
+            # Use Gemini's streaming API via thread (sync client)
+            response_stream = await asyncio.to_thread(
+                client.models.generate_content_stream,
+                model=settings.GEMINI_MODEL,
+                contents=prompt,
+                config=config,
+            )
+
+            # Iterate over the synchronous stream in a thread-safe way
+            for chunk in response_stream:
+                if chunk.text:
+                    yield chunk.text
+
+        except Exception as exc:
+            logger.error("Gemini streaming error: %s", exc)
+            raise LLMProviderError(f"Gemini streaming failed: {exc}") from exc
+
     async def is_available(self) -> bool:
         settings = get_settings()
-        return bool(settings.GEMINI_API_KEY)
+        return settings.is_configured_secret(settings.GEMINI_API_KEY)

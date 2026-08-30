@@ -16,6 +16,7 @@ interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
   loading: boolean;
+  refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
   requireAuth: (callback?: () => void) => boolean;
   openAuthModal: () => void;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
   loading: true,
+  refreshUser: async () => {},
   logout: async () => {},
   requireAuth: () => false,
   openAuthModal: () => {},
@@ -91,6 +93,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const refreshUser = async () => {
+    const currentUser = await getCurrentUser();
+    setUser(currentUser ? {
+      id: currentUser.id,
+      email: currentUser.email,
+      username: currentUser.username || currentUser.email.split("@")[0],
+    } : null);
+  };
+
   const handleLogout = async () => {
     await signOut();
     setUser(null);
@@ -113,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         loading,
+        refreshUser,
         logout: handleLogout,
         requireAuth,
         openAuthModal: () => setIsAuthModalOpen(true),

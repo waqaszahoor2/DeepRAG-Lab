@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Requests ─────────────────────────────────────────────────────────────
@@ -16,6 +16,14 @@ class ChatRequest(BaseModel):
     document_ids: list[str] | None = Field(
         default=None,
         description="Optional: restrict RAG search to specific document IDs",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="Optional: save to an existing conversation thread",
+    )
+    is_demo: bool = Field(
+        default=False,
+        description="If true, bypass auth and search only demo documents",
     )
 
 
@@ -33,21 +41,25 @@ class SourceCitation(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     mode: str  # document_qa | general_ai
+    route: str | None = None
+    selected_document_ids: list[str] = []
     confidence_score: float | None = None
     sources: list[SourceCitation] = []
     query_id: str
+    provider: str | None = None  # Which LLM provider was used
+    sufficient_context: bool = True  # False when docs don't have enough info
+    conversation_id: str | None = None
 
 
 class ChatHistoryItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     question: str
     answer: str
     mode: str
     confidence_score: float | None
     created_at: str
-
-    class Config:
-        from_attributes = True
 
 
 class ChatHistoryResponse(BaseModel):

@@ -36,7 +36,7 @@ _MAGIC_SIGNATURES: dict[str, list[bytes]] = {
 def _sanitize_filename(filename: str) -> str:
     """Remove path traversal sequences and dangerous characters."""
     # Strip directory components
-    name = os.path.basename(filename)
+    name = os.path.basename(filename.replace("\\", "/"))
     # Remove non-alphanumeric chars except dot, hyphen, underscore
     name = re.sub(r"[^\w.\-]", "_", name)
     # Collapse multiple underscores
@@ -72,7 +72,9 @@ async def validate_upload(file: UploadFile) -> tuple[str, str, str]:
 
     # 2. Size check (read first MAX+1 byte to detect oversize)
     max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
-    content = await file.read()
+    content = await file.read(max_bytes + 1)
+    if not content:
+        raise FileValidationError("The uploaded file is empty.")
     if len(content) > max_bytes:
         raise FileValidationError(
             f"File exceeds maximum size of {settings.MAX_FILE_SIZE_MB} MB."
@@ -86,6 +88,12 @@ async def validate_upload(file: UploadFile) -> tuple[str, str, str]:
             f"File content does not match the '{extension}' format. "
             "Possible extension spoofing detected."
         )
+
+    if extension in {".txt", ".csv", ".md"}:
+        try:
+            content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise FileValidationError("Text files must use UTF-8 encoding.") from exc
 
     # 4. Sanitize filename and assign unique ID
     safe_name = _sanitize_filename(file.filename)

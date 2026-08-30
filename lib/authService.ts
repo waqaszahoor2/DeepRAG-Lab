@@ -87,7 +87,7 @@ export function validateStrongPassword(password: string): PasswordValidationResu
 }
 
 /**
- * Unified Sign In method supporting Supabase Auth, Backend API, or Local Failsafe Auth
+ * Unified sign-in method supporting the configured authentication provider.
  */
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   if (isSupabaseConfigured()) {
@@ -135,43 +135,13 @@ export async function signIn(email: string, password: string): Promise<AuthResul
     };
   }
 
-  // Fallback to Backend FastAPI server or Failsafe Demo Auth
-  try {
-    const res = await loginUser(email, password);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', res.access_token);
-      localStorage.setItem('refresh_token', res.refresh_token);
-      localStorage.setItem('user_email', email);
-    }
-    return {
-      user: {
-        id: 'backend_user',
-        email,
-      },
-      access_token: res.access_token,
-      refresh_token: res.refresh_token,
-      provider: 'backend',
-    };
-  } catch (err: any) {
-    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-      const mockToken = `demo_access_token_${Date.now()}`;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('access_token', mockToken);
-        localStorage.setItem('refresh_token', `demo_refresh_token_${Date.now()}`);
-        localStorage.setItem('user_email', email);
-      }
-      return {
-        user: {
-          id: 'demo_user',
-          email,
-        },
-        access_token: mockToken,
-        refresh_token: mockToken,
-        provider: 'backend',
-      };
-    }
-    throw err;
+  const res = await loginUser(email, password);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('access_token', res.access_token);
+    localStorage.setItem('refresh_token', res.refresh_token);
+    localStorage.setItem('user_email', email);
   }
+  return { user: { id: 'backend_user', email }, access_token: res.access_token, refresh_token: res.refresh_token, provider: 'backend' };
 }
 
 /**
@@ -254,45 +224,13 @@ export async function signUp(
     }
   }
 
-  // Fallback to Backend FastAPI server or Failsafe Demo Auth
-  try {
-    const res = await registerUser(email, username, password);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', res.access_token);
-      localStorage.setItem('refresh_token', res.refresh_token);
-      localStorage.setItem('user_email', email);
-    }
-    return {
-      user: {
-        id: 'backend_user',
-        email,
-        username,
-      },
-      access_token: res.access_token,
-      refresh_token: res.refresh_token,
-      provider: 'backend',
-    };
-  } catch (err: any) {
-    if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-      const mockToken = `demo_access_token_${Date.now()}`;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('access_token', mockToken);
-        localStorage.setItem('refresh_token', `demo_refresh_token_${Date.now()}`);
-        localStorage.setItem('user_email', email);
-      }
-      return {
-        user: {
-          id: 'demo_user',
-          email,
-          username,
-        },
-        access_token: mockToken,
-        refresh_token: mockToken,
-        provider: 'backend',
-      };
-    }
-    throw err;
+  const res = await registerUser(email, username, password);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('access_token', res.access_token);
+    localStorage.setItem('refresh_token', res.refresh_token);
+    localStorage.setItem('user_email', email);
   }
+  return { user: { id: 'backend_user', email, username }, access_token: res.access_token, refresh_token: res.refresh_token, provider: 'backend' };
 }
 
 /**
@@ -337,17 +275,14 @@ export async function getCurrentUser(): Promise<{ id: string; email: string; use
   }
 
   try {
-    const u = await fetchUserProfile();
-    return u;
-  } catch (err) {
-    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user_email') : null;
-    return {
-      id: 'active_session_user',
-      email: storedUser || 'user@deeprag.lab',
-      username: storedUser ? storedUser.split('@')[0] : 'Developer',
-      is_active: true,
-      created_at: new Date().toISOString(),
-    };
+    return await fetchUserProfile();
+  } catch {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_email');
+    }
+    return null;
   }
 }
 
@@ -384,16 +319,17 @@ export async function signInWithGoogle(): Promise<void> {
  * Sign Out user from both Supabase and Local Storage
  */
 export async function signOut(): Promise<void> {
-  if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    if (supabase) {
-      await supabase.auth.signOut();
+  try {
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabase();
+      if (supabase) await supabase.auth.signOut();
     }
-  }
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_email');
+  } finally {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_email');
+    }
   }
 }
 

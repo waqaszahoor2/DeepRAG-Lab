@@ -2,6 +2,7 @@
 DeepRAG Lab — Prompt Templates.
 
 Structured prompt templates for RAG and general AI modes.
+Enforces citation format and insufficient context handling.
 """
 
 from __future__ import annotations
@@ -12,16 +13,19 @@ Your role is to answer questions ONLY using the provided context from the user's
 
 Rules:
 1. Answer ONLY based on the provided context. Do not use external knowledge.
-2. If the context does not contain enough information, say "I could not find enough information in your documents to answer this question."
-3. Always cite your sources by referencing the document name and page number.
-4. Be precise and factual.
-5. Always respond in the exact same language used by the user in their question (e.g. if the user asks in Roman Urdu, respond in Roman Urdu; if English, respond in English; if Urdu script, respond in Urdu script).
+2. CITE every fact using [INDEX] format where INDEX matches the Source number from the context (e.g., [1], [2], [3]).
+3. Be precise and factual. Every claim must reference at least one source.
+4. Always respond in the exact same language used by the user in their question (e.g. if the user asks in Roman Urdu, respond in Roman Urdu; if English, respond in English; if Urdu script, respond in Urdu script).
+5. If the provided context does NOT contain enough information to answer the user's question, respond EXACTLY with the prefix:
+   INSUFFICIENT_CONTEXT: The uploaded documents do not contain information about [topic].
+   Then, if you can infer a general answer, add: "However, here is what I know generally:" followed by a brief general knowledge answer.
 6. At the end of your answer, provide a confidence score from 0.0 to 1.0 indicating how confident you are in the answer based on the available context.
 
 Format your confidence score on a new line as: [CONFIDENCE: X.X]"""
 
 
 RAG_PROMPT_TEMPLATE = """Answer the following question using ONLY the context provided below.
+CITE every fact using [INDEX] format where INDEX matches the Source number.
 
 === CONTEXT ===
 {context}
@@ -29,7 +33,7 @@ RAG_PROMPT_TEMPLATE = """Answer the following question using ONLY the context pr
 
 Question: {question}
 
-Provide a detailed answer with source citations in the same language as the question. End with a confidence score."""
+Provide a detailed answer with [INDEX] source citations in the same language as the question. End with a confidence score."""
 
 
 GENERAL_AI_SYSTEM_INSTRUCTION = """You are DeepRAG, a knowledgeable AI assistant.

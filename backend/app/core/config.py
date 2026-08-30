@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 
 
 class Settings(BaseSettings):
@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     OPENROUTER_MODEL: str = "google/gemini-2.5-flash"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
+    ZAI_API_KEY: str = ""
+    ZAI_MODEL: str = "glm-4-flash"
+    ZAI_BASE_URL: str = "https://open.bigmodel.cn/api/paas/v4/"
+
     LLM_TIMEOUT_SECONDS: int = 30
     LLM_MAX_RETRIES: int = 3
     LLM_PRIMARY_PROVIDER: Literal["gemini", "openrouter"] = "gemini"
@@ -85,13 +89,48 @@ class Settings(BaseSettings):
     RETRIEVAL_TOP_K: int = 5
     RETRIEVAL_SCORE_THRESHOLD: float = 0.3
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+        "extra": "ignore",
+    }
+
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "Settings":
+        if not self.ALLOWED_ORIGINS:
+            raise ValueError("ALLOWED_ORIGINS must contain at least one trusted origin")
+        if self.ENVIRONMENT in {"staging", "production"}:
+            if len(self.JWT_SECRET) < 32 or self.JWT_SECRET.startswith("CHANGE_ME"):
+                raise ValueError("JWT_SECRET must be a strong, unique value outside development")
+        return self
+
+    @staticmethod
+    def is_configured_secret(value: str) -> bool:
+        """Return false for empty or documentation placeholder values."""
+        normalized = value.strip().lower()
+        return bool(normalized) and not normalized.startswith(("your_", "change_me", "replace_", "<"))
 
 
 @lru_cache()
 def get_settings() -> Settings:
     """Return cached application settings singleton."""
-    return Settings()
+    s = Settings()
+
+    # Log environment startup readiness checklist
+    from app.core.logging import get_logger
+    logger = get_logger("app.config")
+
+    keys_status = [
+        ("Gemini", bool(s.GEMINI_API_KEY)),
+        ("Z.AI", bool(s.ZAI_API_KEY)),
+        ("OpenRouter", bool(s.OPENROUTER_API_KEY)),
+    ]
+    active_providers = [name for name, active in keys_status if active]
+
+    if not active_providers:
+        logger.warning("⚠️  NO LLM API KEYS CONFIGURED! Add GEMINI_API_KEY, ZAI_API_KEY, or OPENROUTER_API_KEY to backend/.env")
+    else:
+        logger.info("✅ Active LLM Providers: %s", ", ".join(active_providers))
+
+    return s

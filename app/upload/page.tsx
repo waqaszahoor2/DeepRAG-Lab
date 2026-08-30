@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Trash2, Database, AlertCircle, RefreshCw } from "lucide-react";
+import { FileText, Trash2, Database, AlertCircle, RefreshCw, Eye, Layers } from "lucide-react";
 import FileUploader from "@/components/FileUploader";
+import ChunkPreviewModal from "@/components/ChunkPreviewModal";
 import { fetchDocuments, deleteDocument, DocumentItem } from "@/lib/api";
 
 export default function UploadPage() {
@@ -12,7 +13,12 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadDocuments = async () => {
+  // Chunk Modal State
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [previewDocName, setPreviewDocName] = useState<string>("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetchDocuments();
@@ -22,11 +28,11 @@ export default function UploadPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     loadDocuments();
-  }, []);
+  }, [loadDocuments]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -38,6 +44,12 @@ export default function UploadPage() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleOpenPreview = (doc: DocumentItem) => {
+    setPreviewDocId(doc.id);
+    setPreviewDocName(doc.original_filename);
+    setIsPreviewOpen(true);
   };
 
   return (
@@ -111,13 +123,24 @@ export default function UploadPage() {
                         </span>
                       </td>
                       <td className="py-4 text-right">
-                        <button
-                          onClick={() => handleDelete(doc.id)}
-                          disabled={deletingId === doc.id}
-                          className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors disabled:opacity-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenPreview(doc)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 border border-purple-500/20 transition-colors flex items-center gap-1"
+                            title="Preview Chunks"
+                          >
+                            <Layers className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Chunks</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(doc.id)}
+                            disabled={deletingId === doc.id}
+                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors disabled:opacity-50"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -127,6 +150,14 @@ export default function UploadPage() {
           )}
         </div>
       </div>
+
+      {/* Chunk Preview Modal */}
+      <ChunkPreviewModal
+        documentId={previewDocId}
+        filename={previewDocName}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+      />
     </div>
   );
 }

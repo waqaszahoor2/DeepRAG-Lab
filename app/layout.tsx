@@ -8,6 +8,12 @@ export const metadata: Metadata = {
   description: "Upload documents and ask questions with precise citations, confidence scoring, and fallback LLM routing.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
