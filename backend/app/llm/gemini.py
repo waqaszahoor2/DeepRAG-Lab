@@ -26,10 +26,10 @@ _client: genai.Client | None = None
 def _get_client() -> genai.Client:
     """Return a singleton Gemini client."""
     global _client
+    settings = get_settings()
+    if not settings.is_configured_secret(settings.GEMINI_API_KEY):
+        raise LLMProviderError("GEMINI_API_KEY is not configured.")
     if _client is None:
-        settings = get_settings()
-        if not settings.GEMINI_API_KEY:
-            raise LLMProviderError("GEMINI_API_KEY is not configured.")
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
 

@@ -18,21 +18,16 @@ async def test_llm_router_primary_success():
 
 
 @pytest.mark.asyncio
-async def test_llm_router_failover_to_openrouter():
+async def test_llm_router_gemini_failure_returns_safe_error():
     with patch("app.llm.router._gemini.is_available", new_callable=AsyncMock) as mock_gem_avail, \
-         patch("app.llm.router._gemini.generate", new_callable=AsyncMock) as mock_gem_gen, \
-         patch("app.llm.router._zai.is_available", new_callable=AsyncMock) as mock_zai_avail, \
-         patch("app.llm.router._openrouter.is_available", new_callable=AsyncMock) as mock_or_avail, \
-         patch("app.llm.router._openrouter.generate", new_callable=AsyncMock) as mock_or_gen:
+         patch("app.llm.router._gemini.generate", new_callable=AsyncMock) as mock_gem_gen:
 
         mock_gem_avail.return_value = True
         mock_gem_gen.side_effect = LLMProviderError("Gemini quota exceeded 429")
 
-        mock_zai_avail.return_value = False
+        with pytest.raises(LLMProviderError) as exc_info:
+            await generate_answer("Test prompt")
 
-        mock_or_avail.return_value = True
-        mock_or_gen.return_value = "OpenRouter backup response text"
+        assert "temporarily unavailable" in str(exc_info.value)
+        assert "Gemini" not in str(exc_info.value)
 
-        ans, provider = await generate_answer("Test failover prompt")
-        assert ans == "OpenRouter backup response text"
-        assert provider == "OpenRouter"

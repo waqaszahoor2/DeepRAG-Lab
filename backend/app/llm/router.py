@@ -35,11 +35,8 @@ PROVIDER_RELIABILITY: dict[str, float] = {
 
 
 def _get_provider_chain() -> list[BaseLLMProvider]:
-    """Return the ordered provider chain based on configuration."""
-    settings = get_settings()
-    if settings.LLM_PRIMARY_PROVIDER == "openrouter":
-        return [_openrouter, _zai, _gemini]
-    return [_gemini, _zai, _openrouter]
+    """Return the primary Gemini LLM provider."""
+    return [_gemini]
 
 
 async def generate_answer(
